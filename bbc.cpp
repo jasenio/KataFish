@@ -2129,8 +2129,11 @@ static inline void perft_driver(int depth)
     
     // generate moves
     generate_moves(move_list);
-    
-        // loop over generated moves
+
+    // check if checkmated
+    //bool checkmate = true;
+
+    // loop over generated moves
     for (int move_count = 0; move_count < move_list->count; move_count++)
     {   
         // preserve board state
@@ -2141,12 +2144,23 @@ static inline void perft_driver(int depth)
             // skip to the next move
             continue;
         
+      //  checkmate = false;
         // call perft driver recursively
         perft_driver(depth - 1);
         
         // take back
         take_back();
     }
+    // if(checkmate){
+    //     print_board();
+    //     printf("%d\n", eval());
+    //     if(side==white){
+    //         printf("White was checkmated");
+    //     }
+    //     else{
+    //         printf("Black was checkmated");
+    //     }
+    // }
 }
 
 // perft test
@@ -2197,99 +2211,6 @@ void perft_test(int depth)
     printf("\n    Depth: %d\n", depth);
     printf("    Nodes: %ld\n", nodes);
     printf("     Time: %ld\n\n", get_time_ms() - start);
-}
-
-
-/**********************************\
- ==================================
- 
-               Search
-
-  AIMA CODE IMPLEMENTATION HERE
- 
- ==================================
-\**********************************/
-
-// search position for the best move
-void search_position(int depth)
-{
-    // reccursion escape condition
-    if (depth == 0)
-    {
-        // increment nodes count (count reached positions)
-        nodes++;
-        return;
-    }
-    
-    // create move list instance
-    moves move_list[1];
-    
-    // generate moves
-    generate_moves(move_list);
-    
-    // loop over generated moves
-    for (int move_count = 0; move_count < move_list->count; move_count++)
-    {   
-        // preserve board state
-        copy_board();
-        
-        // make move
-        if (!make_move(move_list->moves[move_count], all_moves))
-            // skip to the next move
-            continue;
-        
-
-
-        // call perft driver recursively
-        perft_driver(depth - 1);
-        
-        // take back
-        take_back();
-    }
-
-
-
-
-
-    // best move placeholder
-    printf("bestmove d2d4\n");
-}
-
-// find max-value
-int max_value(int alpha, int beta, int depth){
-    // create move list instance
-    moves move_list[1];
-    
-    // generate moves
-    generate_moves(move_list);
-
-    // loop over generated moves
-    for (int move_count = 0; move_count < move_list->count; move_count++)
-    {   
-        // preserve board state
-        copy_board();
-        
-        // make move
-        if (!make_move(move_list->moves[move_count], all_moves))
-            // skip to the next move
-            continue;
-        
-
-
-        // call perft driver recursively
-        perft_driver(depth - 1);
-        
-        // take back
-        take_back();
-    }
-
-    // best move placeholder
-    printf("bestmove d2d4\n");
-    return 0;
-}
-
-int min_value(int alpha, int beta, int depth){
-    return alpha+beta+depth;
 }
 /**********************************\
  ==================================
@@ -2382,33 +2303,44 @@ int king_end_table[64] = {
 int eval(){
 
     // BASIC MATERIAL SCORE, not middle/endgame taken into account
-    // save counts to array
     int countPieces[12];
 
+    uint64_t white_pawns = bitboards[P];
+    uint64_t black_pawns = bitboards[p];
+    uint64_t white_knights = bitboards[N];
+    uint64_t black_knights = bitboards[n];
+    uint64_t white_bishops = bitboards[B];
+    uint64_t black_bishops = bitboards[b];
+    uint64_t white_rooks = bitboards[R];
+    uint64_t black_rooks = bitboards[r];
+    uint64_t white_queens = bitboards[Q];
+    uint64_t black_queens = bitboards[q];
+    uint64_t white_king = bitboards[K];
+    uint64_t black_king = bitboards[k];
+
     // calculate pawns score, each pawn = 1
-    countPieces[P] = count_bits(bitboards[P]);
-    countPieces[p] = count_bits(bitboards[p]);
+    countPieces[P] = count_bits(white_pawns);
+    countPieces[p] = count_bits(black_pawns);
 
     // calculate knights score
-    countPieces[N] = count_bits(bitboards[N]);
-    countPieces[n] = count_bits(bitboards[n]);
+    countPieces[N] = count_bits(white_knights);
+    countPieces[n] = count_bits(black_knights);
 
     // calculate bishops score
-    countPieces[B] = count_bits(bitboards[B]);
-    countPieces[b] = count_bits(bitboards[b]);
+    countPieces[B] = count_bits(white_bishops);
+    countPieces[b] = count_bits(black_bishops);
 
     // calculate rooks score
-    countPieces[R] = count_bits(bitboards[R]);
-    countPieces[r] = count_bits(bitboards[r]);
+    countPieces[R] = count_bits(white_rooks);
+    countPieces[r] = count_bits(black_rooks);
 
     // calculate queens score
-    countPieces[Q] = count_bits(bitboards[Q]);
-    countPieces[q] = count_bits(bitboards[q]);
+    countPieces[Q] = count_bits(white_queens);
+    countPieces[q] = count_bits(black_queens);
 
     // calc king score
-    countPieces[K] = count_bits(bitboards[K]);
-    countPieces[k] = count_bits(bitboards[k]);
-
+    countPieces[K] = count_bits(white_king);
+    countPieces[k] = count_bits(black_king);
 
     // calculate score based on centipawns
     int utility_material = 0;
@@ -2427,104 +2359,232 @@ int eval(){
     <= 6);
 
     // PIECE SQUARE TABLE EVALUATION
-    copy_board();
 
     int utility_table = 0;
 
     // calc pawns
-    while(bitboards[P]){
-        int pawn_square = get_ls1b_index(bitboards[P]);
+    while(white_pawns){
+        int pawn_square = get_ls1b_index(white_pawns);
         utility_table += pawn_table[pawn_square];
-        pop_bit(bitboards[P], pawn_square);
+        pop_bit(white_pawns, pawn_square);
     }
 
-    while(bitboards[p]){
-        int pawn_square = get_ls1b_index(bitboards[p]);
+    while(black_pawns){
+        int pawn_square = get_ls1b_index(black_pawns);
         utility_table -= pawn_table[63 - pawn_square];
-        pop_bit(bitboards[p], pawn_square);
+        pop_bit(black_pawns, pawn_square);
     }
 
     // calc knights
-    while(bitboards[N]){
-        int knight_square = get_ls1b_index(bitboards[N]);
+    while(white_knights){
+        int knight_square = get_ls1b_index(white_knights);
         utility_table += knight_table[knight_square];
-        pop_bit(bitboards[N], knight_square);
+        pop_bit(white_knights, knight_square);
     }
 
-    while(bitboards[n]){
-        int knight_square = get_ls1b_index(bitboards[n]);
+    while(black_knights){
+        int knight_square = get_ls1b_index(black_knights);
         utility_table -= knight_table[63 - knight_square];
-        pop_bit(bitboards[n], knight_square);
+        pop_bit(black_knights, knight_square);
     }
 
     // calc bishops
-    while(bitboards[B]){
-        int bishop_square = get_ls1b_index(bitboards[B]);
+    while(white_bishops){
+        int bishop_square = get_ls1b_index(white_bishops);
         utility_table += bishop_table[bishop_square];
-        pop_bit(bitboards[B], bishop_square);
+        pop_bit(white_bishops, bishop_square);
     }
 
-    while(bitboards[b]){
-        int bishop_square = get_ls1b_index(bitboards[b]);
+    while(black_bishops){
+        int bishop_square = get_ls1b_index(black_bishops);
         utility_table -= bishop_table[63 - bishop_square];
-        pop_bit(bitboards[b], bishop_square);
+        pop_bit(black_bishops, bishop_square);
     }
 
     // calc rooks
-    while(bitboards[R]){
-        int rook_square = get_ls1b_index(bitboards[R]);
+    while(white_rooks){
+        int rook_square = get_ls1b_index(white_rooks);
         utility_table += rook_table[rook_square];
-        pop_bit(bitboards[R], rook_square);
+        pop_bit(white_rooks, rook_square);
     }
 
-    while(bitboards[r]){
-        int rook_square = get_ls1b_index(bitboards[r]);
+    while(black_rooks){
+        int rook_square = get_ls1b_index(black_rooks);
         utility_table -= rook_table[63 - rook_square];
-        pop_bit(bitboards[r], rook_square);
+        pop_bit(black_rooks, rook_square);
     }
 
     // calc queens
-    while(bitboards[Q]){
-        int queen_square = get_ls1b_index(bitboards[Q]);
+    while(white_queens){
+        int queen_square = get_ls1b_index(white_queens);
         utility_table += queen_table[queen_square];
-        pop_bit(bitboards[Q], queen_square);
+        pop_bit(white_queens, queen_square);
     }
 
-    while(bitboards[q]){
-        int queen_square = get_ls1b_index(bitboards[q]);
+    while(black_queens){
+        int queen_square = get_ls1b_index(black_queens);
         utility_table -= queen_table[63 - queen_square];
-        pop_bit(bitboards[q], queen_square);
+        pop_bit(black_queens, queen_square);
     }
 
     // calc kings
-    while(bitboards[K]){
-        int king_square = get_ls1b_index(bitboards[K]);
+    while(white_king){
+        int king_square = get_ls1b_index(white_king);
         utility_table += end_game ? king_end_table[king_square] : king_middle_table[king_square];
-        pop_bit(bitboards[K], king_square);
+        pop_bit(white_king, king_square);
     }
 
-    while(bitboards[k]){
-        int king_square = get_ls1b_index(bitboards[k]);
+    while(black_king){
+        int king_square = get_ls1b_index(black_king);
         utility_table -= end_game ? king_end_table[63 - king_square] : king_middle_table[63 - king_square];
-        pop_bit(bitboards[k], king_square);
+        pop_bit(black_king, king_square);
     }
-
-    take_back();    
-
-    
 
     return utility_material + utility_table;
 }
 
 
+/**********************************\
+ ==================================
+ 
+               Search
 
+  AIMA CODE IMPLEMENTATION HERE
+ 
+ ==================================
+\**********************************/
 
+// use a struct to store a move and its utility
+struct move_utility {
+    int utility;
+    int move;
+};
 
+// forward min value to be used in mx
+move_utility min_value(int alpha, int beta, int depth);
 
+// find max-value
+// from AIMA, game is preserved in global array bitboards[] instead of an input, copy and takeback mimic this operation
+move_utility max_value(int alpha, int beta, int depth){
+    // terminate at cutoff when depth is 0
+    if(depth == 0) return {eval(), 0};
 
+    // create move list instance
+    moves move_list[1];
+    
+    // generate moves
+    generate_moves(move_list);
 
+    // lost king is worst utility
+    int current_utility = -20000;
+    int current_move = 0;
+    
+    bool checkmate = true;
 
+    // loop over generated moves
+    for (int move_count = 0; move_count < move_list->count; move_count++)
+    {   
+        // preserve board state
+        copy_board();
+        
+        int move = move_list->moves[move_count];
 
+        // make move
+        if (!make_move(move, all_moves))
+            // skip to the next move
+            continue;
+        
+        checkmate = false;
+
+        move_utility pair = min_value(alpha, beta, depth-1);
+        
+        // save the move pair if it has the greater utility than current best move
+        if(pair.utility > current_utility){
+            current_utility = pair.utility;
+            current_move = move;
+
+            // save the move to alpha if it has greater utility
+            if(current_utility > alpha) alpha = current_utility; 
+        }
+
+        // if current path is better than black's best move, terminate
+        if (current_utility >= beta) return {current_utility, current_move};
+
+        // take back
+        take_back();
+    }
+
+    // another terminal state
+    if(checkmate){
+        return {-20000, 0};
+    }
+
+    return {current_utility, current_move};
+}
+
+move_utility min_value(int alpha, int beta, int depth){
+    // terminate at cutoff when depth is 0
+    // print_board();
+    // printf("%d\n", eval());
+    if(depth == 0) return {eval(), 0};
+
+    // create move list instance
+    moves move_list[1];
+    
+    // generate moves
+    generate_moves(move_list);
+
+    // lost king is worst utility
+    int current_utility = 20000;
+    int current_move = 0;
+    
+    bool checkmate = true;
+
+    // loop over generated moves
+    for (int move_count = 0; move_count < move_list->count; move_count++)
+    {   
+        // preserve board state
+        copy_board();
+        
+        int move = move_list->moves[move_count];
+        // make move
+        if (!make_move(move, all_moves))
+            // skip to the next move
+            continue;
+        
+        checkmate = false;
+
+        move_utility pair = max_value(alpha, beta, depth-1);
+        
+        // save the move pair if it has the less utility than current best move
+        if(pair.utility < current_utility){
+            current_utility = pair.utility;
+            current_move = move;
+
+            // save to beta if it has less utility
+            if(current_utility < beta) beta = current_utility; 
+        }
+
+        // if current path is worst than white's best move, terminate
+        if (current_utility <= alpha) return {current_utility, current_move};
+
+        // take back
+        take_back();
+    }
+
+    // another terminal state
+    if(checkmate){
+        return {20000, 0};
+    }
+
+    return {current_utility, current_move};
+}
+
+// alpha beta search
+move_utility alpha_beta_search(int depth){
+    move_utility pair  = max_value(-20000, 20000, depth);
+    return pair;
+}
 
 
 
@@ -2713,7 +2773,7 @@ void parse_go(char *command)
         depth = 6;
     
     // search position
-    search_position(depth);
+    alpha_beta_search(depth);
 }
 
 /*
@@ -2837,8 +2897,9 @@ int main()
     parse_fen(start_position);
     print_board();
 
-    printf("evaluation: %1d\n", eval());
-    print_board();
+    move_utility pair = alpha_beta_search(5);
+    printf("evaluation %d\n", pair.utility);
+    print_move(pair.move);
 
     // int depth = 0;
     // std::cout << "Enter the depth: ";
