@@ -314,37 +314,40 @@ U64 generate_magic_number()
 // count bits within a bitboard (Brian Kernighan's way)
 static inline int count_bits(U64 bitboard)
 {
-    // bit counter
-    int count = 0;
+    // use built in functions    
+    return __builtin_popcountll(bitboard);
+    // // bit counter
+    // int count = 0;
     
-    // consecutively reset least significant 1st bit
-    while (bitboard)
-    {
-        // increment count
-        count++;
+    // // consecutively reset least significant 1st bit
+    // while (bitboard)
+    // {
+    //     // increment count
+    //     count++;
         
-        // reset least significant 1st bit
-        bitboard &= bitboard - 1;
-    }
+    //     // reset least significant 1st bit
+    //     bitboard &= bitboard - 1;
+    // }
     
-    // return bit count
-    return count;
+    // // return bit count
+    // return count;
 }
 
 // get least significant 1st bit index
 static inline int get_ls1b_index(U64 bitboard)
 {
-    // make sure bitboard is not 0
-    if (bitboard)
-    {
-        // count trailing bits before LS1B
-        return count_bits((bitboard & -bitboard) - 1);
-    }
+     return (bitboard) ? __builtin_ctzll(bitboard) : -1;
+    // // make sure bitboard is not 0
+    // if (bitboard)
+    // {
+    //     // count trailing bits before LS1B
+    //     return count_bits((bitboard & -bitboard) - 1);
+    // }
     
-    //otherwise
-    else
-        // return illegal index
-        return -1;
+    // //otherwise
+    // else
+    //     // return illegal index
+    //     return -1;
 }
 
 
@@ -1042,7 +1045,7 @@ U64 set_occupancy(int index, int bits_in_mask, U64 attack_mask)
     for (int count = 0; count < bits_in_mask; count++)
     {
         // get LS1B index of attacks mask
-        int square = get_ls1b_index(attack_mask);
+        int square = __builtin_ctzll(attack_mask);
         
         // pop LS1B in attack map
         pop_bit(attack_mask, square);
@@ -1102,7 +1105,7 @@ U64 find_magic_number(int square, int relevant_bits, int bishop)
         U64 magic_number = generate_magic_number();
         
         // skip inappropriate magic numbers
-        if (count_bits((attack_mask * magic_number) & 0xFF00000000000000) < 6) continue;
+        if (__builtin_popcountll((attack_mask * magic_number) & 0xFF00000000000000) < 6) continue;
         
         // init used attacks
         memset(used_attacks, 0ULL, sizeof(used_attacks));
@@ -1166,7 +1169,7 @@ void init_sliders_attacks(int bishop)
         U64 attack_mask = bishop ? bishop_masks[square] : rook_masks[square];
         
         // init relevant occupancy bit count
-        int relevant_bits_count = count_bits(attack_mask);
+        int relevant_bits_count = __builtin_popcountll(attack_mask);
         
         // init occupancy indicies
         int occupancy_indicies = (1 << relevant_bits_count);
@@ -1641,7 +1644,7 @@ static inline int make_move(int move, int move_flag)
         side ^= 1;
         
         // make sure that king has not been exposed into a check
-        if (is_square_attacked((side == white) ? get_ls1b_index(bitboards[k]) : get_ls1b_index(bitboards[K]), side))
+        if (is_square_attacked((side == white) ? __builtin_ctzll(bitboards[k]) : __builtin_ctzll(bitboards[K]), side))
         {
             // take move back
             take_back();
@@ -1701,7 +1704,7 @@ static inline void generate_moves(moves *move_list)
                 while (bitboard)
                 {
                     // init source square
-                    source_square = get_ls1b_index(bitboard);
+                    source_square = __builtin_ctzll(bitboard);
                     
                     // init target square
                     target_square = source_square - 8;
@@ -1736,7 +1739,7 @@ static inline void generate_moves(moves *move_list)
                     while (attacks)
                     {
                         // init target square
-                        target_square = get_ls1b_index(attacks);
+                        target_square = __builtin_ctzll(attacks);
                         
                         // pawn promotion
                         if (source_square >= a7 && source_square <= h7)
@@ -1765,7 +1768,7 @@ static inline void generate_moves(moves *move_list)
                         if (enpassant_attacks)
                         {
                             // init enpassant capture target square
-                            int target_enpassant = get_ls1b_index(enpassant_attacks);
+                            int target_enpassant = __builtin_ctzll(enpassant_attacks);
                             add_move(move_list, encode_move(source_square, target_enpassant, piece, 0, 1, 0, 1, 0));
                         }
                     }
@@ -1814,7 +1817,7 @@ static inline void generate_moves(moves *move_list)
                 while (bitboard)
                 {
                     // init source square
-                    source_square = get_ls1b_index(bitboard);
+                    source_square = __builtin_ctzll(bitboard);
                     
                     // init target square
                     target_square = source_square + 8;
@@ -1849,7 +1852,7 @@ static inline void generate_moves(moves *move_list)
                     while (attacks)
                     {
                         // init target square
-                        target_square = get_ls1b_index(attacks);
+                        target_square = __builtin_ctzll(attacks);
                         
                         // pawn promotion
                         if (source_square >= a2 && source_square <= h2)
@@ -1878,7 +1881,7 @@ static inline void generate_moves(moves *move_list)
                         if (enpassant_attacks)
                         {
                             // init enpassant capture target square
-                            int target_enpassant = get_ls1b_index(enpassant_attacks);
+                            int target_enpassant = __builtin_ctzll(enpassant_attacks);
                             add_move(move_list, encode_move(source_square, target_enpassant, piece, 0, 1, 0, 1, 0));
                         }
                     }
@@ -1924,7 +1927,7 @@ static inline void generate_moves(moves *move_list)
             while (bitboard)
             {
                 // init source square
-                source_square = get_ls1b_index(bitboard);
+                source_square = __builtin_ctzll(bitboard);
                 
                 // init piece attacks in order to get set of target squares
                 attacks = knight_attacks[source_square] & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
@@ -1933,7 +1936,7 @@ static inline void generate_moves(moves *move_list)
                 while (attacks)
                 {
                     // init target square
-                    target_square = get_ls1b_index(attacks);    
+                    target_square = __builtin_ctzll(attacks);    
                     
                     // quiet move
                     if (!get_bit(((side == white) ? occupancies[black] : occupancies[white]), target_square))
@@ -1960,7 +1963,7 @@ static inline void generate_moves(moves *move_list)
             while (bitboard)
             {
                 // init source square
-                source_square = get_ls1b_index(bitboard);
+                source_square = __builtin_ctzll(bitboard);
                 
                 // init piece attacks in order to get set of target squares
                 attacks = get_bishop_attacks(source_square, occupancies[both]) & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
@@ -1969,7 +1972,7 @@ static inline void generate_moves(moves *move_list)
                 while (attacks)
                 {
                     // init target square
-                    target_square = get_ls1b_index(attacks);    
+                    target_square = __builtin_ctzll(attacks);    
                     
                     // quiet move
                     if (!get_bit(((side == white) ? occupancies[black] : occupancies[white]), target_square))
@@ -1996,7 +1999,7 @@ static inline void generate_moves(moves *move_list)
             while (bitboard)
             {
                 // init source square
-                source_square = get_ls1b_index(bitboard);
+                source_square = __builtin_ctzll(bitboard);
                 
                 // init piece attacks in order to get set of target squares
                 attacks = get_rook_attacks(source_square, occupancies[both]) & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
@@ -2005,7 +2008,7 @@ static inline void generate_moves(moves *move_list)
                 while (attacks)
                 {
                     // init target square
-                    target_square = get_ls1b_index(attacks);    
+                    target_square = __builtin_ctzll(attacks);    
                     
                     // quiet move
                     if (!get_bit(((side == white) ? occupancies[black] : occupancies[white]), target_square))
@@ -2032,7 +2035,7 @@ static inline void generate_moves(moves *move_list)
             while (bitboard)
             {
                 // init source square
-                source_square = get_ls1b_index(bitboard);
+                source_square = __builtin_ctzll(bitboard);
                 
                 // init piece attacks in order to get set of target squares
                 attacks = get_queen_attacks(source_square, occupancies[both]) & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
@@ -2041,7 +2044,7 @@ static inline void generate_moves(moves *move_list)
                 while (attacks)
                 {
                     // init target square
-                    target_square = get_ls1b_index(attacks);    
+                    target_square = __builtin_ctzll(attacks);    
                     
                     // quiet move
                     if (!get_bit(((side == white) ? occupancies[black] : occupancies[white]), target_square))
@@ -2068,7 +2071,7 @@ static inline void generate_moves(moves *move_list)
             while (bitboard)
             {
                 // init source square
-                source_square = get_ls1b_index(bitboard);
+                source_square = __builtin_ctzll(bitboard);
                 
                 // init piece attacks in order to get set of target squares
                 attacks = king_attacks[source_square] & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
@@ -2077,7 +2080,7 @@ static inline void generate_moves(moves *move_list)
                 while (attacks)
                 {
                     // init target square
-                    target_square = get_ls1b_index(attacks);    
+                    target_square = __builtin_ctzll(attacks);    
                     
                     // quiet move
                     if (!get_bit(((side == white) ? occupancies[black] : occupancies[white]), target_square))
@@ -2319,28 +2322,28 @@ int eval(){
     uint64_t black_king = bitboards[k];
 
     // calculate pawns score, each pawn = 1
-    countPieces[P] = count_bits(white_pawns);
-    countPieces[p] = count_bits(black_pawns);
+    countPieces[P] = __builtin_popcountll(white_pawns);
+    countPieces[p] = __builtin_popcountll(black_pawns);
 
     // calculate knights score
-    countPieces[N] = count_bits(white_knights);
-    countPieces[n] = count_bits(black_knights);
+    countPieces[N] = __builtin_popcountll(white_knights);
+    countPieces[n] = __builtin_popcountll(black_knights);
 
     // calculate bishops score
-    countPieces[B] = count_bits(white_bishops);
-    countPieces[b] = count_bits(black_bishops);
+    countPieces[B] = __builtin_popcountll(white_bishops);
+    countPieces[b] = __builtin_popcountll(black_bishops);
 
     // calculate rooks score
-    countPieces[R] = count_bits(white_rooks);
-    countPieces[r] = count_bits(black_rooks);
+    countPieces[R] = __builtin_popcountll(white_rooks);
+    countPieces[r] = __builtin_popcountll(black_rooks);
 
     // calculate queens score
-    countPieces[Q] = count_bits(white_queens);
-    countPieces[q] = count_bits(black_queens);
+    countPieces[Q] = __builtin_popcountll(white_queens);
+    countPieces[q] = __builtin_popcountll(black_queens);
 
     // calc king score
-    countPieces[K] = count_bits(white_king);
-    countPieces[k] = count_bits(black_king);
+    countPieces[K] = __builtin_popcountll(white_king);
+    countPieces[k] = __builtin_popcountll(black_king);
 
     // calculate score based on centipawns
     int utility_material = 0;
@@ -2348,97 +2351,97 @@ int eval(){
     utility_material += 320 * (countPieces[N] - countPieces[n]);
     utility_material += 330 * (countPieces[B] - countPieces[b]);
     utility_material += 500 * (countPieces[R] - countPieces[r]);
-    utility_material += 900 * (countPieces[Q] -  countPieces[q]);
-    utility_material += 20000 * (countPieces[K] -  countPieces[k]);
+    utility_material += 900 * (countPieces[Q] - countPieces[q]);
+    utility_material += 20000 * (countPieces[K] - countPieces[k]);
 
     // end game starts when less than 7 major/minor pieces left
     bool end_game = (countPieces[N] + countPieces[n] +
                     countPieces[B] + countPieces[b] +
                     countPieces[R] + countPieces[r] +
-                    countPieces[Q] + countPieces[q]
-    <= 6);
+                    countPieces[Q] + countPieces[q] <= 6);
 
     // PIECE SQUARE TABLE EVALUATION
 
     int utility_table = 0;
 
     // calc pawns
-    while(white_pawns){
-        int pawn_square = get_ls1b_index(white_pawns);
+    while (white_pawns) {
+        int pawn_square = __builtin_ctzll(white_pawns);
         utility_table += pawn_table[pawn_square];
         pop_bit(white_pawns, pawn_square);
     }
 
-    while(black_pawns){
-        int pawn_square = get_ls1b_index(black_pawns);
+    while (black_pawns) {
+        int pawn_square = __builtin_ctzll(black_pawns);
         utility_table -= pawn_table[63 - pawn_square];
         pop_bit(black_pawns, pawn_square);
     }
 
     // calc knights
-    while(white_knights){
-        int knight_square = get_ls1b_index(white_knights);
+    while (white_knights) {
+        int knight_square = __builtin_ctzll(white_knights);
         utility_table += knight_table[knight_square];
         pop_bit(white_knights, knight_square);
     }
 
-    while(black_knights){
-        int knight_square = get_ls1b_index(black_knights);
+    while (black_knights) {
+        int knight_square = __builtin_ctzll(black_knights);
         utility_table -= knight_table[63 - knight_square];
         pop_bit(black_knights, knight_square);
     }
 
     // calc bishops
-    while(white_bishops){
-        int bishop_square = get_ls1b_index(white_bishops);
+    while (white_bishops) {
+        int bishop_square = __builtin_ctzll(white_bishops);
         utility_table += bishop_table[bishop_square];
         pop_bit(white_bishops, bishop_square);
     }
 
-    while(black_bishops){
-        int bishop_square = get_ls1b_index(black_bishops);
+    while (black_bishops) {
+        int bishop_square = __builtin_ctzll(black_bishops);
         utility_table -= bishop_table[63 - bishop_square];
         pop_bit(black_bishops, bishop_square);
     }
 
     // calc rooks
-    while(white_rooks){
-        int rook_square = get_ls1b_index(white_rooks);
+    while (white_rooks) {
+        int rook_square = __builtin_ctzll(white_rooks);
         utility_table += rook_table[rook_square];
         pop_bit(white_rooks, rook_square);
     }
 
-    while(black_rooks){
-        int rook_square = get_ls1b_index(black_rooks);
+    while (black_rooks) {
+        int rook_square = __builtin_ctzll(black_rooks);
         utility_table -= rook_table[63 - rook_square];
         pop_bit(black_rooks, rook_square);
     }
 
     // calc queens
-    while(white_queens){
-        int queen_square = get_ls1b_index(white_queens);
+    while (white_queens) {
+        int queen_square = __builtin_ctzll(white_queens);
         utility_table += queen_table[queen_square];
         pop_bit(white_queens, queen_square);
     }
 
-    while(black_queens){
-        int queen_square = get_ls1b_index(black_queens);
+    while (black_queens) {
+        int queen_square = __builtin_ctzll(black_queens);
         utility_table -= queen_table[63 - queen_square];
         pop_bit(black_queens, queen_square);
     }
 
     // calc kings
-    while(white_king){
-        int king_square = get_ls1b_index(white_king);
+    while (white_king) {
+        int king_square = __builtin_ctzll(white_king);
         utility_table += end_game ? king_end_table[king_square] : king_middle_table[king_square];
         pop_bit(white_king, king_square);
     }
 
-    while(black_king){
-        int king_square = get_ls1b_index(black_king);
+    while (black_king) {
+        int king_square = __builtin_ctzll(black_king);
         utility_table -= end_game ? king_end_table[63 - king_square] : king_middle_table[63 - king_square];
         pop_bit(black_king, king_square);
     }
+
 
     return utility_material + utility_table;
 }
@@ -2467,7 +2470,10 @@ move_utility min_value(int alpha, int beta, int depth);
 // from AIMA, game is preserved in global array bitboards[] instead of an input, copy and takeback mimic this operation
 move_utility max_value(int alpha, int beta, int depth){
     // terminate at cutoff when depth is 0
-    if(depth == 0) return {eval(), 0};
+    if(depth == 0) {
+        nodes++;
+        return {eval(), 0};
+    }
 
     // create move list instance
     moves move_list[1];
@@ -2508,17 +2514,20 @@ move_utility max_value(int alpha, int beta, int depth){
         }
 
         // if current path is better than black's best move, terminate
-        if (current_utility >= beta) return {current_utility, current_move};
-
+        if (current_utility >= beta) {
+            nodes++;
+            return {current_utility, current_move};
+        }
         // take back
         take_back();
     }
 
     // another terminal state
     if(checkmate){
+        nodes++;
         return {-20000, 0};
     }
-
+    nodes++;
     return {current_utility, current_move};
 }
 
@@ -2526,7 +2535,10 @@ move_utility min_value(int alpha, int beta, int depth){
     // terminate at cutoff when depth is 0
     // print_board();
     // printf("%d\n", eval());
-    if(depth == 0) return {eval(), 0};
+    if(depth == 0) {
+        nodes++;
+        return {eval(), 0};
+    }
 
     // create move list instance
     moves move_list[1];
@@ -2551,7 +2563,7 @@ move_utility min_value(int alpha, int beta, int depth){
         if (!make_move(move, all_moves))
             // skip to the next move
             continue;
-        
+
         checkmate = false;
 
         move_utility pair = max_value(alpha, beta, depth-1);
@@ -2566,7 +2578,10 @@ move_utility min_value(int alpha, int beta, int depth){
         }
 
         // if current path is worst than white's best move, terminate
-        if (current_utility <= alpha) return {current_utility, current_move};
+        if (current_utility <= alpha) {
+            nodes++;
+            return {current_utility, current_move};
+        }
 
         // take back
         take_back();
@@ -2574,15 +2589,23 @@ move_utility min_value(int alpha, int beta, int depth){
 
     // another terminal state
     if(checkmate){
+        nodes++;
         return {20000, 0};
     }
 
+    nodes++;
     return {current_utility, current_move};
 }
 
 // alpha beta search
 move_utility alpha_beta_search(int depth){
+    long start = get_time_ms();
+    nodes = 0;
     move_utility pair  = max_value(-20000, 20000, depth);
+    printf("    Nodes: %ld\n", nodes);
+    printf("    Time: %ld\n\n", get_time_ms() - start);
+    printf("    Evaluation %d\n", pair.utility);
+    print_move(pair.move);
     return pair;
 }
 
@@ -2897,25 +2920,20 @@ int main()
     parse_fen(start_position);
     print_board();
 
-    move_utility pair = alpha_beta_search(5);
-    printf("evaluation %d\n", pair.utility);
-    print_move(pair.move);
+    int depth = 0;
+    std::cout << "Enter the depth: ";
+    std::cin >> depth;
 
-    // int depth = 0;
-    // std::cout << "Enter the depth: ";
-    // std::cin >> depth;
-    // for(int i = 0; i < 9; i++){
-    //     int start = get_time_ms();
+    alpha_beta_search(depth);
+//         int start = get_time_ms();
 
         
-    //     // perft
-    //     perft_driver(depth);
+//         // perft
+//         perft_driver(depth);
         
-    //     // time taken to execute program
-    //     printf("time taken to execute: %d ms\n", get_time_ms() - start);
-    //     printf("nodes: %ld\n", nodes);
-    // }
-
+//         // time taken to execute program
+//         printf("time taken to execute: %d ms\n", get_time_ms() - start);
+//         printf("nodes: %ld\n", nodes);
 
     // debug mode variable
 
