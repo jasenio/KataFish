@@ -2526,25 +2526,29 @@ enum {LOWER_BOUND, EXACT, UPPER_BOUND};
 
 const int TABLE_SIZE = 4 * 1024 * 1024; // hold around 4 million entries
 
-
+// Principal variations
 const int MAX_DEPTH = 10;
-int PV[MAX_DEPTH][MAX_DEPTH]; // Store best moves for each depth
-int PV_length[MAX_DEPTH];      // Store the length of the PV at each depth
+int PV[MAX_DEPTH][MAX_DEPTH];
+int PV_length[MAX_DEPTH];     
 
 // transposition table
 entry transposition_table[TABLE_SIZE];
 
+long invalid_table_moves = 0;
+long table_moves = 0;
+long stored = 0;
+long probed = 0;
+
 // get an entry
 bool probe_entry(uint64_t hash, entry &entry, int depth){
     int index = hash % TABLE_SIZE;
-    entry = transposition_table[index];
 
     // only return if the table's stored hash is equivalent
+    if(transposition_table[index].hash != 0) probed++;
     if(transposition_table[index].hash == hash){
+        invalid_table_moves++;
         entry = transposition_table[index];
-
-        // only return true to cut off search if depth is less than depth searched for hash
-        return entry.depth >= depth;
+        return true;
     }
 
     return false;
@@ -2553,16 +2557,15 @@ bool probe_entry(uint64_t hash, entry &entry, int depth){
 // store entry inputs into table
 void store_entry(uint64_t hash, int move, int depth, int utility, int node_type){
     int index = hash % TABLE_SIZE;
-
+    stored++;
     // replace the hash if it has greater depth than current entry
     // ** MIGHT TRY AGING OR OTHER REPLACEMENT TECHNIQUES **
-    if(transposition_table[index].depth <= depth){
+    if(transposition_table[index].depth <= depth || (node_type == EXACT && transposition_table[index].node_type != EXACT)){
         transposition_table[index] = {hash, move, depth, utility, node_type};
     }
     
 }
 
-std::unordered_map<int, int> history_scores;
 
 // forward min value to be used in mx
 move_utility min_value(int alpha, int beta, int depth);
@@ -2574,20 +2577,21 @@ move_utility max_value(int alpha, int beta, int depth){
     if(depth == 0) {
         // store move in transposition as exact
         int util = eval();
-        store_entry(compute_zobrist_hash(), 0, depth, util, EXACT);
+        // store_entry(compute_zobrist_hash(), 0, depth, util, EXACT);
         nodes++;
         return {util, 0};
     }
 
     // probe transposition table for an entry
     entry ent;
-    if(probe_entry(compute_zobrist_hash(), ent, depth)){
-        // cut off if lower bound node is less than alpha
+    bool probed = probe_entry(compute_zobrist_hash(), ent, depth);
+    if(probed && ent.depth >= depth){
+        // update alpha
         if(ent.node_type == LOWER_BOUND && ent.utility > alpha){
             alpha = ent.utility;
         }       
 
-        // cut off if upper bound node is more than beta
+        // update beta
         else if(ent.node_type == UPPER_BOUND && ent.utility < beta){
             beta = ent.utility;
         }
@@ -2598,6 +2602,7 @@ move_utility max_value(int alpha, int beta, int depth){
             return {ent.utility, ent.move};
         }
 
+        // cut off
         if(alpha >= beta){
             return {ent.utility, ent.move};
         }
@@ -2611,17 +2616,6 @@ move_utility max_value(int alpha, int beta, int depth){
     // generate moves
     generate_moves(move_list);
 
-    // find the best move and swap to front of life
-    if(ent.move){
-        int first_move = move_list->moves[0];
-        for(int move_count = 0; move_count < move_list->count; move_count++){
-            if(move_list->moves[move_count] == ent.move){
-                move_list->moves[0] = ent.move;
-                move_list->moves[move_count] = first_move;
-                break;
-            }
-        }
-    }
 
     // lost king is worst utility
     int current_utility = -20000;
@@ -2630,6 +2624,31 @@ move_utility max_value(int alpha, int beta, int depth){
     // ** NEEDS BETTER IMPLEMENTATION TO DETECT CHECKMATE VS STALEMATE *** 
     bool checkmate = true;
 
+    // find the best move and swap to front of life
+    if(probed){
+        int first_move = move_list->moves[0];
+        // bool valid = false;
+        for(int move_count = 0; move_count < move_list->count; move_count++){
+            if(move_list->moves[move_count] == ent.move){
+                move_list->moves[0] = ent.move;
+                move_list->moves[move_count] = first_move;
+                // valid = true;
+                break;
+            }
+        }
+        //  if(!valid) {
+        //     printf("%d\n", ent.move);
+        //     print_move(ent.move);
+        //     print_move(first_move);
+        //     print_board();
+        //     printf("Zobrist Hash: %" PRIu64 "\n", compute_zobrist_hash());
+        //     throw std::runtime_error("yah");
+        //     invalid_table_moves++;
+        //  } 
+         
+        table_moves++;
+    }
+    
     // loop over generated moves
     for (int move_count = 0; move_count < move_list->count; move_count++)
     {   
@@ -2656,14 +2675,12 @@ move_utility max_value(int alpha, int beta, int depth){
             if(current_utility > alpha){
                 alpha = current_utility; 
 
-                // Copy the PV from the child and prepend the current move
-                PV[depth][0] = current_move;
-                for (int i = 0; i < PV_length[depth - 1]; ++i) {
-                    PV[depth][i + 1] = PV[depth - 1][i];
-                }
-                PV_length[depth] = PV_length[depth - 1] + 1;
+
             } 
         }
+
+        // take back
+        take_back();
 
         // if current path is better than black's best move, terminate
         if (current_utility >= beta) {
@@ -2673,14 +2690,12 @@ move_utility max_value(int alpha, int beta, int depth){
 
             return {current_utility, current_move};
         }
-        // take back
-        take_back();
     }
 
     // another terminal state
     if(checkmate){
         // store move in transposition as exact
-        store_entry(compute_zobrist_hash(), current_move, depth, current_utility, EXACT);
+        // store_entry(compute_zobrist_hash(), current_move, depth, current_utility, EXACT);
         nodes++;
         return {-20000, 0};
     }
@@ -2695,20 +2710,22 @@ move_utility min_value(int alpha, int beta, int depth){
     if(depth == 0) {
         // store move in transposition as exact
         int util = eval();
-        store_entry(compute_zobrist_hash(), 0, depth, util, EXACT);
+
+        // store_entry(compute_zobrist_hash(), 0, depth, util, EXACT);
         nodes++;
         return {util, 0};
     }
     
     // probe transposition table for an entry
     entry ent;
-    if(probe_entry(compute_zobrist_hash(), ent, depth)){
-        // cut off if lower bound node is less than alpha
+    bool probed = probe_entry(compute_zobrist_hash(), ent, depth);
+    if(probed && ent.depth >= depth){
+        // update alpha
         if(ent.node_type == LOWER_BOUND && ent.utility > alpha){
             alpha = ent.utility;
         }       
 
-        // cut off if upper bound node is more than beta
+        // update beta
         else if(ent.node_type == UPPER_BOUND && ent.utility < beta){
             beta = ent.utility;
         }
@@ -2719,6 +2736,7 @@ move_utility min_value(int alpha, int beta, int depth){
             return {ent.utility, ent.move};
         }
 
+        // cutoff
         if(alpha >= beta){
             return {ent.utility, ent.move};
         }
@@ -2732,15 +2750,27 @@ move_utility min_value(int alpha, int beta, int depth){
     generate_moves(move_list);
 
     // find the best move and swap to front of life
-    if(ent.move){
+    if(probed){
         int first_move = move_list->moves[0];
+        // bool valid = false;
         for(int move_count = 0; move_count < move_list->count; move_count++){
             if(move_list->moves[move_count] == ent.move){
                 move_list->moves[0] = ent.move;
                 move_list->moves[move_count] = first_move;
+                // valid = true;
                 break;
             }
         }
+        // if(!valid) {
+        //     printf("%d\n", ent.move);
+        //     print_move(ent.move);
+        //     print_move(first_move);
+        //     print_board();
+        //     printf("Zobrist Hash: %" PRIu64 "\n", compute_zobrist_hash());
+        //     throw std::runtime_error("yah");
+        //     invalid_table_moves++;
+        //  } 
+        table_moves++;
     }
 
     // lost king is worst utility
@@ -2773,15 +2803,11 @@ move_utility min_value(int alpha, int beta, int depth){
             // save to beta if it has less utility
             if(current_utility < beta){
                 beta = current_utility; 
-                
-                // Copy the PV from the child and prepend the current move
-                PV[depth][0] = current_move;
-                for (int i = 0; i < PV_length[depth - 1]; ++i) {
-                    PV[depth][i + 1] = PV[depth - 1][i];
-                }
-                PV_length[depth] = PV_length[depth - 1] + 1;
             } 
         }
+
+        // take back
+        take_back();
 
         // if current path is worst than white's best move, terminate
         if (current_utility <= alpha) {
@@ -2789,16 +2815,13 @@ move_utility min_value(int alpha, int beta, int depth){
             store_entry(compute_zobrist_hash(), current_move, depth, current_utility, UPPER_BOUND);
             nodes++;
             return {current_utility, current_move};
-        }
-
-        // take back
-        take_back();
+        }       
     }
 
     // another terminal state
     if(checkmate){
         // store move in transposition as exact
-        store_entry(compute_zobrist_hash(), current_move, depth, current_utility, EXACT);
+        // store_entry(compute_zobrist_hash(), current_move, depth, current_utility, EXACT);
         nodes++;
         return {20000, 0};
     }
@@ -2831,7 +2854,9 @@ move_utility iterative_deepening(int depth){
     printf("    Nodes: %ld\n", nodes);
     printf("    Time: %ld\n\n", get_time_ms() - start);
     printf("    Evaluation %d\n", pair.utility);
+    printf("    ");
     print_move(pair.move);
+    printf("\n");
     return pair;
 }
 
@@ -3168,10 +3193,18 @@ int main()
         printf("nodes: %ld\n", nodes);
     }
     else{
+        invalid_table_moves = 0;
         iterative_deepening(depth);
-        for(int i = 0; i < depth; i++){
-            print_move(PV[0][i]);
-        }
+        // printf("    %ld\n", invalid_table_moves);
+        // printf("    %ld\n", table_moves);
+        // printf("    %ld\n", stored);
+        // printf("    %ld\n", probed);
+        // for (int d = 0; d < depth; d++) {
+        //     for (int i = 0; i < PV_length[d]; i++) {
+        //         print_move(PV[d][i]);  // Print the move at depth 'd'
+        //     }
+        //     printf("\n");
+        // }
     }
 
     
