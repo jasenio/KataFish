@@ -1405,6 +1405,11 @@ void print_move(int move)
                      promoted_pieces[get_move_promoted(move)]);
 }
 
+std::string move_string(int move) {
+    return std::string(square_to_coordinates[get_move_source(move)]) +
+           std::string(square_to_coordinates[get_move_target(move)]) +
+          std::string(1, promoted_pieces[get_move_promoted(move)]);
+}
 
 // print move list
 void print_move_list(moves *move_list)
@@ -2524,7 +2529,7 @@ struct entry{
 
 enum {LOWER_BOUND, EXACT, UPPER_BOUND};
 
-const int TABLE_SIZE = 4 * 1024 * 1024; // hold around 4 million entries
+const int TABLE_SIZE = 16 * 1024 * 1024; // hold around 4 million entries
 
 // Principal variations
 const int MAX_DEPTH = 10;
@@ -2566,6 +2571,37 @@ void store_entry(uint64_t hash, int move, int depth, int utility, int node_type)
     
 }
 
+// quiescence search at depth cutoff nodes
+int quiescence_search(int alpha, int beta){
+    int current_utility = eval();
+
+    // beta cutoff
+    if(current_utility >= beta) return beta;
+
+    // update alpha if it's larger
+    if(alpha < current_utility) alpha = current_utility;
+
+    moves move_list[1];
+    generate_moves(move_list);
+
+    for(int move = 0; move < move_list->count; move++){
+        copy_board();
+
+        if(!make_move(move, only_captures))
+            continue;
+
+        int utility = -quiescence_search(-beta, -alpha);
+
+        take_back();
+
+        if( utility >= beta )
+            return beta;
+        if( utility > alpha )
+           alpha = utility;
+    }
+
+    return alpha;
+}
 
 // forward min value to be used in mx
 move_utility min_value(int alpha, int beta, int depth);
@@ -2576,7 +2612,7 @@ move_utility max_value(int alpha, int beta, int depth){
     // terminate at cutoff when depth is 0
     if(depth == 0) {
         // store move in transposition as exact
-        int util = eval();
+        int util = quiescence_search(alpha, beta);
         // store_entry(compute_zobrist_hash(), 0, depth, util, EXACT);
         nodes++;
         return {util, 0};
@@ -2618,7 +2654,7 @@ move_utility max_value(int alpha, int beta, int depth){
 
 
     // lost king is worst utility
-    int current_utility = -20000;
+    int current_utility = -20001;
     int current_move = 0;
     
     // ** NEEDS BETTER IMPLEMENTATION TO DETECT CHECKMATE VS STALEMATE *** 
@@ -2709,7 +2745,7 @@ move_utility min_value(int alpha, int beta, int depth){
     // terminate at cutoff when depth is 0
     if(depth == 0) {
         // store move in transposition as exact
-        int util = eval();
+        int util = quiescence_search(alpha, beta);
 
         // store_entry(compute_zobrist_hash(), 0, depth, util, EXACT);
         nodes++;
@@ -2774,7 +2810,7 @@ move_utility min_value(int alpha, int beta, int depth){
     }
 
     // lost king is worst utility
-    int current_utility = 20000;
+    int current_utility = 20001;
     int current_move = 0;
     
     bool checkmate = true;
@@ -2844,15 +2880,20 @@ move_utility alpha_beta_search(int depth){
 }
 
 // iterative deepening
-move_utility iterative_deepening(int depth){
+move_utility iterative_deepening(int depth, int time){
     long start = get_time_ms();
     nodes = 0;
+    int reached = 0;
     move_utility pair;
     for(int i = 1; i <= depth; i++){
-        pair  = max_value(-20000, 20000, depth);
+        if(get_time_ms() - start >= time * 1000){
+            break;
+        }
+
+        reached++;
+        pair = side == white ? max_value(-20000, 20000, i) : min_value(-20000, 20000, i) ;
     }
-    printf("    Nodes: %ld\n", nodes);
-    printf("    Time: %ld\n\n", get_time_ms() - start);
+    printf("\n    Nodes: %ld | Depth Reached %d | Time: %ld\n", nodes, reached, get_time_ms() - start);
     printf("    Evaluation %d\n", pair.utility);
     printf("    ");
     print_move(pair.move);
@@ -3030,28 +3071,28 @@ void parse_position(char *command)
 void parse_go(char *command)
 {
     // init depth
-    int depth = -1;
+    // int depth = 6;
     
-    // init character pointer to the current depth argument
-    char *current_depth = NULL;
+    // // init character pointer to the current depth argument
+    // char *current_depth = strstr(command, "depth");
     
-    // handle fixed depth search
-    if (current_depth == strstr(command, "depth"))
-        //convert string to integer and assign the result value to depth
-        depth = atoi(current_depth + 6);
+    // // handle fixed depth search if "depth" is found in the command
+    // if (current_depth) {
+    //     // convert string to integer and assign the result to depth
+    //     depth = atoi(current_depth + 6);  // Skip the "depth " part
+    // }
     
-    // different time controls placeholder
-    else
-        depth = 6;
-    
-    // search position
-    alpha_beta_search(depth);
+    // search position with the given depth
+    move_utility pair = iterative_deepening(15, 2);
+    printf("Recommend move: ");
+    print_move(pair.move);
+    printf("Evaluation: %d\n", pair.utility);
 }
 
 /*
     GUI -> isready
     Engine -> readyok
-    GUI -> ucinewgame
+    GUI -> uci
 */
 
 // main UCI loop
@@ -3063,11 +3104,14 @@ void uci_loop()
     
     // define user / GUI input buffer
     char input[2000];
+    std::string line = "moves: ";
     
     // print engine info
-    printf("id name BBC\n");
-    printf("id name Code Monkey King\n");
-    printf("uciok\n");
+    printf("commands: \n");
+    printf("position startpos moves <start-move>\n");
+    printf("play\n");
+    printf("move <move>\n");
+    printf("perft\n\n");
     
     // main loop
     while (1)
@@ -3099,6 +3143,70 @@ void uci_loop()
         else if (strncmp(input, "position", 8) == 0)
             // call parse position function
             parse_position(input);
+
+        		// parse GUI input moves after initial position
+		else if(!strncmp(input, "position startpos moves", 23))
+		{
+            printf("HELLO");
+            print_board();  
+        }
+        else if(!strncmp(input, "play", 4))
+		{   
+            if(side==white){
+                 move_utility pair = iterative_deepening(15, 2);
+                if(!make_move(pair.move, all_moves)) side ^= 1;    
+                    else{
+                        std::string  move_str = " " + move_string(pair.move);
+                        line.append(move_str.c_str());  
+                    } 
+                print_board(); 
+            }
+
+        }
+
+        else if(!strncmp(input, "move", 4))
+		{   
+
+            char *moves = input + 4; 
+            
+            while (*moves)
+            {
+                if (*moves == ' ')
+                {
+                    moves++;  
+                 
+                    int move = parse_move(moves);  
+                    if(!make_move(move, all_moves)) side ^= 1;    
+                    else if(move!=0){
+                        std::string  move_str = " " + move_string(move);
+                        line.append(move_str.c_str());  
+                    } 
+                }
+                moves++;  
+            }
+
+           
+            print_board(); 
+        }
+
+        else if(!strncmp(input, "line", 4))
+		{   
+            printf("%s", line.c_str());
+        }
+        
+        
+        // parse UCI "perft" command
+        else if (strncmp(input, "perft", 4) == 0)
+        {
+            int start = get_time_ms();
+
+            nodes = 0;
+            // perft
+            perft_driver(5);
+            // time taken to execute program
+            printf("time taken to execute: %d ms\n", get_time_ms() - start);
+            printf("nodes: %ld\n", nodes);
+        }
         
         // parse UCI "ucinewgame" command
         else if (strncmp(input, "ucinewgame", 10) == 0)
@@ -3173,28 +3281,42 @@ int main()
     parse_fen(start_position);
     print_board();
 
-    int depth = 0;
-    std::cout << "Enter the depth: ";
-    std::cin >> depth;
+    iterative_deepening(6, 1000);
+    uci_loop();
+    // int depth = 0;
+    // std::cout << "Enter the depth: ";
+    // std::cin >> depth;
 
-    std::string ans;
-    std::cout << "PERFT? (y/n): ";
-    std::cin >> ans;
+    // std::string ans;
+    // std::cout << "PERFT? (y/n): ";
+    // std::cin >> ans;
 
-    if(ans == "y"){
-        int start = get_time_ms();
+    // if(ans == "y"){
+    //     int start = get_time_ms();
 
         
-        // perft
-        perft_driver(depth);
+    //     // perft
+    //     perft_driver(depth);
         
-        // time taken to execute program
-        printf("time taken to execute: %d ms\n", get_time_ms() - start);
-        printf("nodes: %ld\n", nodes);
-    }
-    else{
-        invalid_table_moves = 0;
-        iterative_deepening(depth);
+    //     // time taken to execute program
+    //     printf("time taken to execute: %d ms\n", get_time_ms() - start);
+    //     printf("nodes: %ld\n", nodes);
+    // }
+    // else{
+    //     invalid_table_moves = 0;
+
+        // while(1){
+        //     move_utility pair = iterative_deepening(depth);
+        //     make_move(pair.move, all_moves);
+
+        //     std::cout << "Input move":
+        
+        // }
+
+
+
+
+
         // printf("    %ld\n", invalid_table_moves);
         // printf("    %ld\n", table_moves);
         // printf("    %ld\n", stored);
@@ -3205,7 +3327,7 @@ int main()
         //     }
         //     printf("\n");
         // }
-    }
+    // }
 
     
 
