@@ -2577,8 +2577,11 @@ void store_entry(uint64_t hash, int move, int depth, int utility, int node_type)
     
 }
 
+int minQS(int alpha, int beta);
+
 // quiescence search at depth cutoff nodes
-int quiescence_search(int alpha, int beta){
+int maxQS(int alpha, int beta){
+    return eval();
     int current_utility = eval();
 
     // beta cutoff
@@ -2596,7 +2599,7 @@ int quiescence_search(int alpha, int beta){
         if(!make_move(move, only_captures))
             continue;
 
-        int utility = -quiescence_search(-beta, -alpha);
+        int utility = minQS(alpha,beta);
 
         take_back();
 
@@ -2609,6 +2612,38 @@ int quiescence_search(int alpha, int beta){
     return alpha;
 }
 
+// minimize quiescence search
+int minQS(int alpha, int beta){
+    int current_utility = eval();
+
+    // alpha cutoff
+    if(current_utility <= alpha) return alpha;
+
+    // update beta if it's smaller
+    if(beta > current_utility) beta = current_utility;
+
+    moves move_list[1];
+    generate_moves(move_list);
+
+    for(int move = 0; move < move_list->count; move++){
+        copy_board();
+
+        if(!make_move(move, only_captures))
+            continue;
+
+        int utility = maxQS(alpha,beta);
+
+        take_back();
+
+        if( utility <= alpha )
+            return alpha;
+        if( utility < beta )
+           beta = utility;
+    }
+
+    return beta;
+}
+
 // forward min value to be used in mx
 move_utility min_value(int alpha, int beta, int depth);
 
@@ -2618,7 +2653,7 @@ move_utility max_value(int alpha, int beta, int depth){
     // terminate at cutoff when depth is 0
     if(depth == 0) {
         // store move in transposition as exact
-        int util = quiescence_search(alpha, beta);
+        int util = maxQS(alpha, beta);
         // store_entry(compute_zobrist_hash(), 0, depth, util, EXACT);
         nodes++;
         return {util, 0};
@@ -2780,7 +2815,7 @@ move_utility min_value(int alpha, int beta, int depth){
     // terminate at cutoff when depth is 0
     if(depth == 0) {
         // store move in transposition as exact
-        int util = quiescence_search(alpha, beta);
+        int util = minQS(alpha, beta);
 
         // store_entry(compute_zobrist_hash(), 0, depth, util, EXACT);
         nodes++;
