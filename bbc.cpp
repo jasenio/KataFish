@@ -2666,16 +2666,34 @@ move_utility max_value(int alpha, int beta, int depth){
     // ** NEEDS BETTER IMPLEMENTATION TO DETECT CHECKMATE VS STALEMATE *** 
     bool checkmate = true;
 
-    // find the best move and swap to front of life
+    // ** MOVE ORDERING ** //
+    // Captures vs non captures
+    int non_captures[256];
+    int nc_count = 0;
+    int captures[256];
+    int c_count = 0;
+
+    // Transposition move
     if(probed){
         int first_move = move_list->moves[0];
         // bool valid = false;
         for(int move_count = 0; move_count < move_list->count; move_count++){
-            if(move_list->moves[move_count] == ent.move){
+            int move = move_list->moves[move_count];
+            // TT move found
+            if(move == ent.move){
                 move_list->moves[0] = ent.move;
                 move_list->moves[move_count] = first_move;
-                // valid = true;
-                break;
+
+            }
+
+            // Sort between captures
+            if(get_move_capture(move)){
+                captures[c_count] = move;
+                c_count++;
+            }
+            else{
+                non_captures[nc_count] = move;
+                nc_count++;
             }
         }
         //  if(!valid) {
@@ -2691,12 +2709,23 @@ move_utility max_value(int alpha, int beta, int depth){
         table_moves++;
     }
     
+    int added_moves = 1;
+    // sort capture moves first
+    for(added_moves = 1; added_moves < c_count + 1; added_moves++){
+        move_list->moves[added_moves] =  captures[added_moves-1];
+    }
+
+    // add non captures moves
+    for(added_moves = c_count + 1; added_moves < c_count + nc_count + 1; added_moves++){
+        move_list->moves[added_moves] = non_captures[added_moves-c_count-1];
+    }
+
+
     // loop over generated moves
     for (int move_count = 0; move_count < move_list->count; move_count++)
     {   
         // preserve board state
         copy_board();
-        
         int move = move_list->moves[move_count];
 
         // make move
@@ -2791,19 +2820,37 @@ move_utility min_value(int alpha, int beta, int depth){
     // generate moves
     generate_moves(move_list);
 
-    // find the best move and swap to front of life
+    // ** MOVE ORDERING ** //
+    // Captures vs non captures
+    int non_captures[256];
+    int nc_count = 0;
+    int captures[256];
+    int c_count = 0;
+
+    // Transposition move
     if(probed){
         int first_move = move_list->moves[0];
         // bool valid = false;
         for(int move_count = 0; move_count < move_list->count; move_count++){
-            if(move_list->moves[move_count] == ent.move){
+            int move = move_list->moves[move_count];
+            // TT move found
+            if(move == ent.move){
                 move_list->moves[0] = ent.move;
                 move_list->moves[move_count] = first_move;
                 // valid = true;
-                break;
+            }
+
+            // Sort between captures
+            if(get_move_capture(move)){
+                captures[c_count] = move;
+                c_count++;
+            }
+            else{
+                non_captures[nc_count] = move;
+                nc_count++;
             }
         }
-        // if(!valid) {
+        //  if(!valid) {
         //     printf("%d\n", ent.move);
         //     print_move(ent.move);
         //     print_move(first_move);
@@ -2812,7 +2859,19 @@ move_utility min_value(int alpha, int beta, int depth){
         //     throw std::runtime_error("yah");
         //     invalid_table_moves++;
         //  } 
+         
         table_moves++;
+    }
+    
+    int added_moves = 1;
+    // sort capture moves first
+    for(added_moves = 1; added_moves < c_count + 1; added_moves++){
+        move_list->moves[added_moves] =  captures[added_moves-1];
+    }
+
+    // add non captures moves
+    for(added_moves = c_count + 1; added_moves < c_count + nc_count + 1; added_moves++){
+        move_list->moves[added_moves] = non_captures[added_moves-c_count-1];
     }
 
     // lost king is worst utility
@@ -2885,14 +2944,14 @@ move_utility alpha_beta_search(int depth){
     return pair;
 }
 
-// iterative deepening
+// iterative deepening INCREMENTED AT .25 seconds
 move_utility iterative_deepening(int depth, int time){
     long start = get_time_ms();
     nodes = 0;
     int reached = 0;
     move_utility pair;
     for(int i = 1; i <= depth; i++){
-        if(get_time_ms() - start >= time * 1000){
+        if(get_time_ms() - start >= time * 250){
             break;
         }
 
@@ -3089,7 +3148,7 @@ void parse_go(char *command)
     // }
     
     // search position with the given depth
-    move_utility pair = iterative_deepening(15, 2);
+    move_utility pair = iterative_deepening(25, 30);
     printf("Recommend move: ");
     print_move(pair.move);
     printf("Evaluation: %d\n", pair.utility);
@@ -3158,8 +3217,8 @@ void uci_loop()
         }
         else if(!strncmp(input, "play", 4))
 		{   
-            if(side==white){
-                 move_utility pair = iterative_deepening(15, 2);
+            if(side==white || side == black){
+                 move_utility pair = iterative_deepening(15, 4);
                 if(!make_move(pair.move, all_moves)) side ^= 1;    
                     else{
                         std::string  move_str = " " + move_string(pair.move);
@@ -3287,11 +3346,12 @@ int main()
     parse_fen(start_position);
     print_board();
 
-    iterative_deepening(6, 1000);
-    uci_loop();
-    // int depth = 0;
-    // std::cout << "Enter the depth: ";
-    // std::cin >> depth;
+    // iterative_deepening(6, 1000);
+    // uci_loop();
+    int depth = 0;
+    std::cout << "Enter the depth: ";
+    std::cin >> depth;
+    iterative_deepening(depth, 1000);
 
     // std::string ans;
     // std::cout << "PERFT? (y/n): ";
@@ -3311,13 +3371,13 @@ int main()
     // else{
     //     invalid_table_moves = 0;
 
-        // while(1){
-        //     move_utility pair = iterative_deepening(depth);
-        //     make_move(pair.move, all_moves);
+    //     while(1){
+    //         move_utility pair = iterative_deepening(depth);
+    //         make_move(pair.move, all_moves);
 
-        //     std::cout << "Input move":
+    //         std::cout << "Input move":
         
-        // }
+    //     }
 
 
 
