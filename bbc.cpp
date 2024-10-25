@@ -2579,7 +2579,7 @@ void store_entry(uint64_t hash, int move, int depth, int utility, int node_type)
 
 int minQS(int alpha, int beta);
 
-// quiescence search at depth cutoff nodes
+// maximize quiescence search
 int maxQS(int alpha, int beta){
     return eval();
     int current_utility = eval();
@@ -2644,6 +2644,122 @@ int minQS(int alpha, int beta){
     return beta;
 }
 
+// MVV LVA table
+int MVV_LVA[12][12] = {
+    // attacks by columns >
+//   K   Q   R   B   N   P
+    {60, 61, 62, 63, 64, 65, 60, 61, 62, 63, 64, 65}, // victims by columns V
+    {50, 51, 52, 53, 54, 55, 50, 51, 52, 53, 54, 55}, 
+    {40, 41, 42, 43, 44, 45, 40, 41, 42, 43, 44, 45}, 
+    {30, 31, 32, 33, 34, 35, 30, 31, 32, 33, 34, 35},
+    {20, 21, 22, 23, 24, 25, 20, 21, 22, 23, 24, 25}, 
+    {10, 11, 12, 13, 14, 15, 10, 11, 12, 13, 14, 15},
+    {60, 61, 62, 63, 64, 65, 60, 61, 62, 63, 64, 65}, 
+    {50, 51, 52, 53, 54, 55, 50, 51, 52, 53, 54, 55}, 
+    {40, 41, 42, 43, 44, 45, 40, 41, 42, 43, 44, 45}, 
+    {30, 31, 32, 33, 34, 35, 30, 31, 32, 33, 34, 35},
+    {20, 21, 22, 23, 24, 25, 20, 21, 22, 23, 24, 25}, 
+    {10, 11, 12, 13, 14, 15, 10, 11, 12, 13, 14, 15},
+};
+
+// int captures_evaluated = 0;
+// move ordering sort
+void sortMoves(moves *move_list, bool probed, int TT_move){
+    // Captures vs non captures
+    int non_captures[256];
+    int nc_count = 0;
+    int captures[256];
+    int c_count = 0;
+    int added_moves = 0;
+
+    // Transposition move
+    if(probed){
+        int first_move = move_list->moves[0];
+        // bool valid = false;
+        for(int move_count = 0; move_count < move_list->count; move_count++){
+            int move = move_list->moves[move_count];
+            // TT move found
+            if(move == TT_move){
+                move_list->moves[0] = TT_move;
+                move_list->moves[move_count] = first_move;
+                added_moves += 1;
+            }
+
+            // Sort between captures
+            if(get_move_capture(move)){
+                captures[c_count] = move;
+                c_count++;
+            }
+            else{
+                non_captures[nc_count] = move;
+                nc_count++;
+            }
+        }
+
+         
+        table_moves++;
+    }
+    // sort captures moves
+    int* capture_scores = new int[c_count];
+    for(int c= 0; c < c_count; c++){
+        int capture_move = captures[c];
+        // determine piece capture
+        int source_piece = get_move_piece(capture_move);
+        int target_square = get_move_target(capture_move);
+
+        for(int target_piece = P; target_piece < k; target_piece++){
+
+            // located correct piece
+            if(get_bit(bitboards[target_piece], target_square)){
+                // get score
+                int mvv_score = MVV_LVA[11-target_piece][11-source_piece];
+                capture_scores[c] = mvv_score;
+
+                // sort the new score within the iterated pieces
+                for(int sorted_location = 0; sorted_location < c; sorted_location++){
+                    // located spot at sorted_move
+                    if(mvv_score > capture_scores[sorted_location]){
+
+                        // place the new score and shift down
+                        for(int shift = c; shift > sorted_location; shift--){
+                            capture_scores[shift] = capture_scores[shift-1];
+                            // swap captures as well
+                            captures[shift] = captures[shift-1];
+                        }
+                        // replace the new score
+                        captures[sorted_location] = capture_move;
+                        capture_scores[sorted_location] = mvv_score;
+                        break;
+                    }
+                }
+                break;
+            }   
+        }   
+    }
+    
+
+    // add capture moves first
+    for(int c = 0; c < c_count; c++){
+        move_list->moves[added_moves] =  captures[c];
+        // print_board();
+        // print_move(move_list->moves[added_moves]);
+        // printf("%d", capture_scores[c]);
+        added_moves++;
+    }
+    delete[] capture_scores;
+    // captures_evaluated++;
+   // printf("SECOND EVALUATION");
+
+    // add non captures moves
+    for(int nc = 0; nc < nc_count; nc++){
+        move_list->moves[added_moves] = non_captures[nc];
+        added_moves++;
+    }
+
+    
+}
+
+
 // forward min value to be used in mx
 move_utility min_value(int alpha, int beta, int depth);
 
@@ -2702,59 +2818,7 @@ move_utility max_value(int alpha, int beta, int depth){
     bool checkmate = true;
 
     // ** MOVE ORDERING ** //
-    // Captures vs non captures
-    int non_captures[256];
-    int nc_count = 0;
-    int captures[256];
-    int c_count = 0;
-
-    // Transposition move
-    if(probed){
-        int first_move = move_list->moves[0];
-        // bool valid = false;
-        for(int move_count = 0; move_count < move_list->count; move_count++){
-            int move = move_list->moves[move_count];
-            // TT move found
-            if(move == ent.move){
-                move_list->moves[0] = ent.move;
-                move_list->moves[move_count] = first_move;
-
-            }
-
-            // Sort between captures
-            if(get_move_capture(move)){
-                captures[c_count] = move;
-                c_count++;
-            }
-            else{
-                non_captures[nc_count] = move;
-                nc_count++;
-            }
-        }
-        //  if(!valid) {
-        //     printf("%d\n", ent.move);
-        //     print_move(ent.move);
-        //     print_move(first_move);
-        //     print_board();
-        //     printf("Zobrist Hash: %" PRIu64 "\n", compute_zobrist_hash());
-        //     throw std::runtime_error("yah");
-        //     invalid_table_moves++;
-        //  } 
-         
-        table_moves++;
-    }
-    
-    int added_moves = 1;
-    // sort capture moves first
-    for(added_moves = 1; added_moves < c_count + 1; added_moves++){
-        move_list->moves[added_moves] =  captures[added_moves-1];
-    }
-
-    // add non captures moves
-    for(added_moves = c_count + 1; added_moves < c_count + nc_count + 1; added_moves++){
-        move_list->moves[added_moves] = non_captures[added_moves-c_count-1];
-    }
-
+    sortMoves(move_list, probed, ent.move);
 
     // loop over generated moves
     for (int move_count = 0; move_count < move_list->count; move_count++)
@@ -2856,58 +2920,7 @@ move_utility min_value(int alpha, int beta, int depth){
     generate_moves(move_list);
 
     // ** MOVE ORDERING ** //
-    // Captures vs non captures
-    int non_captures[256];
-    int nc_count = 0;
-    int captures[256];
-    int c_count = 0;
-
-    // Transposition move
-    if(probed){
-        int first_move = move_list->moves[0];
-        // bool valid = false;
-        for(int move_count = 0; move_count < move_list->count; move_count++){
-            int move = move_list->moves[move_count];
-            // TT move found
-            if(move == ent.move){
-                move_list->moves[0] = ent.move;
-                move_list->moves[move_count] = first_move;
-                // valid = true;
-            }
-
-            // Sort between captures
-            if(get_move_capture(move)){
-                captures[c_count] = move;
-                c_count++;
-            }
-            else{
-                non_captures[nc_count] = move;
-                nc_count++;
-            }
-        }
-        //  if(!valid) {
-        //     printf("%d\n", ent.move);
-        //     print_move(ent.move);
-        //     print_move(first_move);
-        //     print_board();
-        //     printf("Zobrist Hash: %" PRIu64 "\n", compute_zobrist_hash());
-        //     throw std::runtime_error("yah");
-        //     invalid_table_moves++;
-        //  } 
-         
-        table_moves++;
-    }
-    
-    int added_moves = 1;
-    // sort capture moves first
-    for(added_moves = 1; added_moves < c_count + 1; added_moves++){
-        move_list->moves[added_moves] =  captures[added_moves-1];
-    }
-
-    // add non captures moves
-    for(added_moves = c_count + 1; added_moves < c_count + nc_count + 1; added_moves++){
-        move_list->moves[added_moves] = non_captures[added_moves-c_count-1];
-    }
+    sortMoves(move_list, probed, ent.move);
 
     // lost king is worst utility
     int current_utility = 20001;
@@ -2986,6 +2999,7 @@ move_utility iterative_deepening(int depth, int time){
     int reached = 0;
     move_utility pair;
     for(int i = 1; i <= depth; i++){
+        // printf("time");
         if(get_time_ms() - start >= time * 250){
             break;
         }
@@ -3074,7 +3088,8 @@ int parse_move(char *move_string)
 
 /*
     Example UCI commands to init position on chess board
-    
+    play
+
     // init start position
     position startpos
     
@@ -3253,7 +3268,20 @@ void uci_loop()
         else if(!strncmp(input, "play", 4))
 		{   
             if(side==white || side == black){
-                 move_utility pair = iterative_deepening(15, 4);
+                 move_utility pair = iterative_deepening(8, 4);
+                if(!make_move(pair.move, all_moves)) side ^= 1;    
+                    else{
+                        std::string  move_str = " " + move_string(pair.move);
+                        line.append(move_str.c_str());  
+                    } 
+                print_board(); 
+            }
+
+        }
+        else if(!strncmp(input, "depth6", 5))
+		{   
+            if(side==white || side == black){
+                 move_utility pair = iterative_deepening(6, 40);
                 if(!make_move(pair.move, all_moves)) side ^= 1;    
                     else{
                         std::string  move_str = " " + move_string(pair.move);
@@ -3302,7 +3330,7 @@ void uci_loop()
 
             nodes = 0;
             // perft
-            perft_driver(5);
+            perft_driver(6);
             // time taken to execute program
             printf("time taken to execute: %d ms\n", get_time_ms() - start);
             printf("nodes: %ld\n", nodes);
@@ -3387,7 +3415,7 @@ int main()
     std::cout << "Enter the depth: ";
     std::cin >> depth;
     iterative_deepening(depth, 1000);
-
+    uci_loop();
     // std::string ans;
     // std::cout << "PERFT? (y/n): ";
     // std::cin >> ans;
@@ -3451,3 +3479,4 @@ int main()
 
     return 0;
 }
+
