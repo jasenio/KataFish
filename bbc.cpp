@@ -17,6 +17,13 @@
  ==================================
 \**********************************/
 
+#include <iostream>
+
+
+#include<iomanip>
+using std::cout, std::endl;
+
+
 // system headers
 #include <iostream>
 #include <stdio.h>
@@ -244,6 +251,9 @@ U64 occupancies[3];
 
 // side to move
 int side;
+
+// ply of game
+int ply;
 
 // enpassant square
 int enpassant = no_sq; 
@@ -1464,19 +1474,88 @@ void print_move_list(moves *move_list)
 
 }
 
+void print_two_lists(int moves[], int moves2[], int length = 256);
+
+// compare two lists regardless of order
+bool ensure_same(int moves[], int moves2[], int length = 256) {
+    for(int i = 0; i < length; i++){
+        int max_index = i;
+        for(int j = i; j < 256; j++){
+            if(moves[j] > moves[max_index]){
+                max_index = j;
+            }
+        }
+        //swap
+        int temp = moves[i];
+        moves[i] = moves[max_index];
+        moves[max_index] = temp;
+    }
+    for(int i = 0; i < length; i++){
+        int max_index = i;
+        for(int j = i; j < length; j++){
+            if(moves2[j] > moves2[max_index]){
+                max_index = j;
+            }
+        }
+        //swap
+        int temp = moves2[i];
+        moves2[i] = moves2[max_index];
+        moves2[max_index] = temp;
+    }
+    // Compare each element
+    for (int i = 0; i < length; ++i) {
+        if (moves[i] != moves2[i]) {
+            cout << moves[i] << " " << moves2[i] << endl;
+            print_two_lists(moves, moves2, length);
+            throw std::exception();
+            return false;
+        }
+    }
+    return true;
+}
+// print two lists
+void print_two_lists(int moves[], int moves2[], int length){
+    for(int i = 0; i < length; i++){
+        int max_index = i;
+        for(int j = i; j < 256; j++){
+            if(moves[j] > moves[max_index]){
+                max_index = j;
+            }
+        }
+        //swap
+        int temp = moves[i];
+        moves[i] = moves[max_index];
+        moves[max_index] = temp;
+    }
+    for(int i = 0; i < length; i++){
+        int max_index = i;
+        for(int j = i; j < length; j++){
+            if(moves2[j] > moves2[max_index]){
+                max_index = j;
+            }
+        }
+        //swap
+        int temp = moves2[i];
+        moves2[i] = moves2[max_index];
+        moves2[max_index] = temp;
+    }
+    for(int i = 0; i < length; i++){
+        cout << moves[i] << " : " << moves2[i] << endl;
+    }
+}
 // preserve board state
 #define copy_board()                                                      \
     U64 bitboards_copy[12], occupancies_copy[3];                          \
-    int side_copy, enpassant_copy, castle_copy;                           \
+    int side_copy, enpassant_copy, castle_copy, ply_copy;                           \
     memcpy(bitboards_copy, bitboards, 96);                                \
     memcpy(occupancies_copy, occupancies, 24);                            \
-    side_copy = side, enpassant_copy = enpassant, castle_copy = castle;   \
+    side_copy = side, enpassant_copy = enpassant, castle_copy = castle, ply_copy = ply;   \
 
 // restore board state
 #define take_back()                                                       \
     memcpy(bitboards, bitboards_copy, 96);                                \
     memcpy(occupancies, occupancies_copy, 24);                            \
-    side = side_copy, enpassant = enpassant_copy, castle = castle_copy;   \
+    side = side_copy, enpassant = enpassant_copy, castle = castle_copy, ply = ply_copy;   \
 
 // move types
 enum { all_moves, only_captures };
@@ -1653,6 +1732,7 @@ static inline int make_move(int move, int move_flag)
         
         // change side
         side ^= 1;
+        ply++;
         
         // make sure that king has not been exposed into a check
         if (is_square_attacked((side == white) ? __builtin_ctzll(bitboards[k]) : __builtin_ctzll(bitboards[K]), side))
@@ -2474,6 +2554,9 @@ struct move_utility {
     int move;
 };
 
+/***************************
+    TRANSPOSITION TABLE 
+/**************************/
 // zobrist hashing functions for transposition
 uint64_t random_pieces[768];
 uint64_t random_side;
@@ -2537,12 +2620,7 @@ enum {LOWER_BOUND, EXACT, UPPER_BOUND};
 
 const int TABLE_SIZE = 16 * 1024 * 1024; // hold around 4 million entries
 
-// Principal variations
-const int MAX_DEPTH = 10;
-int PV[MAX_DEPTH][MAX_DEPTH];
-int PV_length[MAX_DEPTH];     
-
-// transposition table
+// init table
 entry transposition_table[TABLE_SIZE];
 
 long invalid_table_moves = 0;
@@ -2577,6 +2655,9 @@ void store_entry(uint64_t hash, int move, int depth, int utility, int node_type)
     
 }
 
+/***************************
+    QUIESCENCE SEARCH
+/**************************/
 int minQS(int alpha, int beta);
 
 // maximize quiescence search
@@ -2644,6 +2725,9 @@ int minQS(int alpha, int beta){
     return beta;
 }
 
+/***************************
+    CAPTURES V NON-CAPTURES 
+/**************************/
 // MVV LVA table
 int MVV_LVA[12][12] = {
     // attacks by columns >
@@ -2662,15 +2746,41 @@ int MVV_LVA[12][12] = {
     {10, 11, 12, 13, 14, 15, 10, 11, 12, 13, 14, 15},
 };
 
-// int captures_evaluated = 0;
-// move ordering sort
+/***************************
+        KILLER MOVES
+/**************************/
+const int MAX_PLY = 256;
+const int MAX_KILL_STORED = 2;
+int killerMoves[MAX_PLY][MAX_KILL_STORED] = {};
+
+// store killer moves to a stack
+void storeKillerMove(int move, int ply){
+    // exit capture moves
+    if(get_move_capture(move)) return;
+
+    // exit if move exists alr
+    if(move == killerMoves[ply][0]) return;
+
+    // shift moves FILO
+    killerMoves[ply][1] = killerMoves[ply][0];
+    killerMoves[ply][0] = move;
+}
+
+
+/***************************
+        SORT MOVES  STILL NEEDS OPTIMIZATION !!! ! ! ! !!
+/**************************/
 void sortMoves(moves *move_list, bool probed, int TT_move){
     // Captures vs non captures
-    int non_captures[256];
+    int non_captures[256] = {};
     int nc_count = 0;
-    int captures[256];
+    int captures[256] = {};
     int c_count = 0;
     int added_moves = 0;
+
+    // check correct swaps
+    // int initial[256] = {};
+    // for(int i = 0; i < move_list->count; i++) initial[i] = move_list->moves[i];
 
     // Transposition move
     if(probed){
@@ -2679,14 +2789,14 @@ void sortMoves(moves *move_list, bool probed, int TT_move){
         for(int move_count = 0; move_count < move_list->count; move_count++){
             int move = move_list->moves[move_count];
             // TT move found
-            if(move == TT_move){
+            if(move_count != 0 && move == TT_move){
                 move_list->moves[0] = TT_move;
                 move_list->moves[move_count] = first_move;
                 added_moves += 1;
             }
 
             // Sort between captures
-            if(get_move_capture(move)){
+            else if(get_move_capture(move)){
                 captures[c_count] = move;
                 c_count++;
             }
@@ -2751,15 +2861,37 @@ void sortMoves(moves *move_list, bool probed, int TT_move){
    // printf("SECOND EVALUATION");
 
     // add non captures moves
+    int killer_index = added_moves;
     for(int nc = 0; nc < nc_count; nc++){
-        move_list->moves[added_moves] = non_captures[nc];
+        // swap first killer
+        if(non_captures[nc] == killerMoves[ply][0]){
+            move_list->moves[added_moves] = move_list->moves[killer_index];
+            move_list->moves[killer_index] = non_captures[nc];
+            killer_index++;
+        }
+        // swap second killer
+        else if(non_captures[nc] == killerMoves[ply][1]){
+            move_list->moves[added_moves] = move_list->moves[killer_index];
+            move_list->moves[killer_index] = non_captures[nc];
+            killer_index++;
+        }
+        else{
+            move_list->moves[added_moves] = non_captures[nc];
+        }
+        
         added_moves++;
     }
-
-    
+    // check swaps
+    // if(!ensure_same(initial, move_list->moves, move_list->count)) {
+    //     print_two_lists(initial, move_list->moves);
+    //     throw std::exception();
+    // }
 }
 
 
+/***************************
+    ALPHA BETA SEARCH 
+/**************************/
 // forward min value to be used in mx
 move_utility min_value(int alpha, int beta, int depth);
 
@@ -2844,16 +2976,17 @@ move_utility max_value(int alpha, int beta, int depth){
             // save the move to alpha if it has greater utility
             if(current_utility > alpha){
                 alpha = current_utility; 
-
-
             } 
         }
 
         // take back
         take_back();
 
-        // if current path is better than black's best move, terminate
+        // beta cutoff
         if (current_utility >= beta) {
+            // store killer move
+            storeKillerMove(move, ply);
+
             // store move in transposition as lower bound
             store_entry(compute_zobrist_hash(), move, depth, current_utility, LOWER_BOUND);
             nodes++;
@@ -2958,8 +3091,11 @@ move_utility min_value(int alpha, int beta, int depth){
         // take back
         take_back();
 
-        // if current path is worst than white's best move, terminate
+        // alpha cutoff
         if (current_utility <= alpha) {
+            // store killer move
+            storeKillerMove(move, ply);
+
             // store move in transposition as upper bound
             store_entry(compute_zobrist_hash(), current_move, depth, current_utility, UPPER_BOUND);
             nodes++;
@@ -3291,7 +3427,19 @@ void uci_loop()
             }
 
         }
+        else if(!strncmp(input, "depth9", 5))
+		{   
+            if(side==white || side == black){
+                 move_utility pair = iterative_deepening(9, 40);
+                if(!make_move(pair.move, all_moves)) side ^= 1;    
+                    else{
+                        std::string  move_str = " " + move_string(pair.move);
+                        line.append(move_str.c_str());  
+                    } 
+                print_board(); 
+            }
 
+        }
         else if(!strncmp(input, "move", 4))
 		{   
 
@@ -3304,8 +3452,8 @@ void uci_loop()
                     moves++;  
                  
                     int move = parse_move(moves);  
-                    if(!make_move(move, all_moves)) side ^= 1;    
-                    else if(move!=0){
+                    make_move(move, all_moves); 
+                    if(move!=0){
                         std::string  move_str = " " + move_string(move);
                         line.append(move_str.c_str());  
                     } 
@@ -3406,6 +3554,12 @@ int main()
     init_all();
 
     // parse fen
+    // #define empty_board "8/8/8/8/8/8/8/8 b - - "
+    // #define start_position "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "
+    // #define tricky_position "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1 "
+    // #define killer_position "rnbqkb1r/pp1p1pPp/8/2p1pP2/1P1P4/3P3P/P1P1P3/RNBQKBNR w KQkq e6 0 1"
+    // #define cmk_position "r2q1rk1/ppp2ppp/2n1bn2/2b1p3/3pP3/3P1NPP/PPP1NPB1/R1BQ1RK1 b - - 0 9 "
+
     parse_fen(start_position);
     print_board();
 
@@ -3415,6 +3569,7 @@ int main()
     std::cout << "Enter the depth: ";
     std::cin >> depth;
     iterative_deepening(depth, 1000);
+    return 0;
     uci_loop();
     // std::string ans;
     // std::cout << "PERFT? (y/n): ";
