@@ -2393,11 +2393,16 @@ int king_end_table[64] = {
     -30,-30,  0,  0,  0,  0,-30,-30,
     -50,-30,-30,-30,-30,-30,-30,-50
 };
-
+/*********************************
+ * 
+ * Make more efficient and Pestos??
+ * 
+ * 
+ ************************************/
 int eval(){
 
     // BASIC MATERIAL SCORE, not middle/endgame taken into account
-    int countPieces[12];
+    int countPieces[12] = {};
 
     uint64_t white_pawns = bitboards[P];
     uint64_t black_pawns = bitboards[p];
@@ -2412,57 +2417,20 @@ int eval(){
     uint64_t white_king = bitboards[K];
     uint64_t black_king = bitboards[k];
 
-    // calculate pawns score, each pawn = 1
-    countPieces[P] = __builtin_popcountll(white_pawns);
-    countPieces[p] = __builtin_popcountll(black_pawns);
-
-    // calculate knights score
-    countPieces[N] = __builtin_popcountll(white_knights);
-    countPieces[n] = __builtin_popcountll(black_knights);
-
-    // calculate bishops score
-    countPieces[B] = __builtin_popcountll(white_bishops);
-    countPieces[b] = __builtin_popcountll(black_bishops);
-
-    // calculate rooks score
-    countPieces[R] = __builtin_popcountll(white_rooks);
-    countPieces[r] = __builtin_popcountll(black_rooks);
-
-    // calculate queens score
-    countPieces[Q] = __builtin_popcountll(white_queens);
-    countPieces[q] = __builtin_popcountll(black_queens);
-
-    // calc king score
-    countPieces[K] = __builtin_popcountll(white_king);
-    countPieces[k] = __builtin_popcountll(black_king);
-
-    // calculate score based on centipawns
-    int utility_material = 0;
-    utility_material += 100 * (countPieces[P] - countPieces[p]);
-    utility_material += 320 * (countPieces[N] - countPieces[n]);
-    utility_material += 330 * (countPieces[B] - countPieces[b]);
-    utility_material += 500 * (countPieces[R] - countPieces[r]);
-    utility_material += 900 * (countPieces[Q] - countPieces[q]);
-    utility_material += 20000 * (countPieces[K] - countPieces[k]);
-
-    // end game starts when less than 7 major/minor pieces left
-    bool end_game = (countPieces[N] + countPieces[n] +
-                    countPieces[B] + countPieces[b] +
-                    countPieces[R] + countPieces[r] +
-                    countPieces[Q] + countPieces[q] <= 6);
-
+    
     // PIECE SQUARE TABLE EVALUATION
-
     int utility_table = 0;
 
     // calc pawns
     while (white_pawns) {
+        countPieces[P]++;
         int pawn_square = __builtin_ctzll(white_pawns);
         utility_table += pawn_table[pawn_square];
         pop_bit(white_pawns, pawn_square);
     }
 
     while (black_pawns) {
+        countPieces[p]++;
         int pawn_square = __builtin_ctzll(black_pawns);
         utility_table -= pawn_table[63 - pawn_square];
         pop_bit(black_pawns, pawn_square);
@@ -2470,12 +2438,14 @@ int eval(){
 
     // calc knights
     while (white_knights) {
+        countPieces[N]++;
         int knight_square = __builtin_ctzll(white_knights);
         utility_table += knight_table[knight_square];
         pop_bit(white_knights, knight_square);
     }
 
     while (black_knights) {
+        countPieces[n]++;
         int knight_square = __builtin_ctzll(black_knights);
         utility_table -= knight_table[63 - knight_square];
         pop_bit(black_knights, knight_square);
@@ -2483,12 +2453,14 @@ int eval(){
 
     // calc bishops
     while (white_bishops) {
+        countPieces[B]++;
         int bishop_square = __builtin_ctzll(white_bishops);
         utility_table += bishop_table[bishop_square];
         pop_bit(white_bishops, bishop_square);
     }
 
     while (black_bishops) {
+        countPieces[b]++;
         int bishop_square = __builtin_ctzll(black_bishops);
         utility_table -= bishop_table[63 - bishop_square];
         pop_bit(black_bishops, bishop_square);
@@ -2496,12 +2468,14 @@ int eval(){
 
     // calc rooks
     while (white_rooks) {
+        countPieces[R]++;
         int rook_square = __builtin_ctzll(white_rooks);
         utility_table += rook_table[rook_square];
         pop_bit(white_rooks, rook_square);
     }
 
     while (black_rooks) {
+        countPieces[r]++;
         int rook_square = __builtin_ctzll(black_rooks);
         utility_table -= rook_table[63 - rook_square];
         pop_bit(black_rooks, rook_square);
@@ -2509,30 +2483,50 @@ int eval(){
 
     // calc queens
     while (white_queens) {
+        countPieces[Q]++;
         int queen_square = __builtin_ctzll(white_queens);
         utility_table += queen_table[queen_square];
         pop_bit(white_queens, queen_square);
     }
 
     while (black_queens) {
+        countPieces[q]++;
         int queen_square = __builtin_ctzll(black_queens);
         utility_table -= queen_table[63 - queen_square];
         pop_bit(black_queens, queen_square);
     }
 
-    // calc kings
+    // calculate score based on centipawns
+    int utility_material = 0;
+    // count material
+    utility_material += 100 * (countPieces[P] - countPieces[p]);
+    utility_material += 320 * (countPieces[N] - countPieces[n]);
+    utility_material += 330 * (countPieces[B] - countPieces[b]);
+    utility_material += 500 * (countPieces[R] - countPieces[r]);
+    utility_material += 900 * (countPieces[Q] - countPieces[q]);
+
+    // end game starts when less than 7 major/minor pieces left
+    bool end_game = (countPieces[N] + countPieces[n] +
+                    countPieces[B] + countPieces[b] +
+                    countPieces[R] + countPieces[r] +
+                    countPieces[Q] + countPieces[q] <= 6);
+
+    // calc kings depending on endgame
     while (white_king) {
+        countPieces[K]++;
         int king_square = __builtin_ctzll(white_king);
         utility_table += end_game ? king_end_table[king_square] : king_middle_table[king_square];
         pop_bit(white_king, king_square);
     }
 
     while (black_king) {
+        countPieces[k]++;
         int king_square = __builtin_ctzll(black_king);
         utility_table -= end_game ? king_end_table[63 - king_square] : king_middle_table[63 - king_square];
         pop_bit(black_king, king_square);
     }
 
+    utility_material += 20000 * (countPieces[K] - countPieces[k]);
 
     return utility_material + utility_table;
 }
@@ -2778,8 +2772,11 @@ void sortMoves(moves *move_list, bool probed, int TT_move){
     int c_count = 0;
     int added_moves = 0;
 
+    int killer_moves[2] = {};
+    int killer_index = 0;
     // check correct swaps
     // int initial[256] = {};
+
     // for(int i = 0; i < move_list->count; i++) initial[i] = move_list->moves[i];
 
     // Transposition move
@@ -2800,6 +2797,14 @@ void sortMoves(moves *move_list, bool probed, int TT_move){
                 captures[c_count] = move;
                 c_count++;
             }
+            // Identify killer moves
+            else if(move == killerMoves[ply][0]){
+                killer_moves[0] = move;
+            }
+            else if(move == killerMoves[ply][1]){
+                killer_moves[1] = move;
+            }
+            // Non capture moves
             else{
                 non_captures[nc_count] = move;
                 nc_count++;
@@ -2857,41 +2862,36 @@ void sortMoves(moves *move_list, bool probed, int TT_move){
         added_moves++;
     }
     delete[] capture_scores;
-    // captures_evaluated++;
-   // printf("SECOND EVALUATION");
 
-    // add non captures moves
-    int killer_index = added_moves;
-    for(int nc = 0; nc < nc_count; nc++){
-        // swap first killer
-        if(non_captures[nc] == killerMoves[ply][0]){
-            move_list->moves[added_moves] = move_list->moves[killer_index];
-            move_list->moves[killer_index] = non_captures[nc];
-            killer_index++;
-        }
-        // swap second killer
-        else if(non_captures[nc] == killerMoves[ply][1]){
-            move_list->moves[added_moves] = move_list->moves[killer_index];
-            move_list->moves[killer_index] = non_captures[nc];
-            killer_index++;
-        }
-        else{
-            move_list->moves[added_moves] = non_captures[nc];
-        }
-        
+    // add killer moves FIFO
+    if(killer_moves[0] != 0){
+        move_list->moves[added_moves] = killer_moves[0];
         added_moves++;
     }
+    if(killer_moves[1] != 0){
+        move_list->moves[added_moves] = killer_moves[1];
+        added_moves++;
+    } 
+
+    // add non captures moves
+    for(int nc = 0; nc < nc_count; nc++){
+        move_list->moves[added_moves] = non_captures[nc];
+        added_moves++;
+    }
+
     // check swaps
-    // if(!ensure_same(initial, move_list->moves, move_list->count)) {
-    //     print_two_lists(initial, move_list->moves);
-    //     throw std::exception();
-    // }
+    // int final[256] = {};
+    // for(int i = 0; i < move_list->count; i++) final[i] = move_list->moves[i];
+    // ensure_same(initial, final, move_list->count);
 }
 
 
 /***************************
     ALPHA BETA SEARCH 
 /**************************/
+long null_branches_pruned = 0;
+long null_branches_explored = 0;
+
 // forward min value to be used in mx
 move_utility min_value(int alpha, int beta, int depth);
 
@@ -2932,8 +2932,36 @@ move_utility max_value(int alpha, int beta, int depth){
             return {ent.utility, ent.move};
         }
     }
-    
 
+    // NULL MOVE
+    if(alpha != beta -1){ // not a null branch
+        if(depth >= 3 && ply >= 3){ // sufficient depth
+            int white_king_square = __builtin_ctzll(bitboards[K]);
+            int is_in_check = is_square_attacked(white_king_square, black);
+            if(!is_in_check){ // not in check
+                U64 pieces = bitboards[Q] | bitboards[R] | bitboards[B] | bitboards[N] |
+                             bitboards[q] | bitboards[r] | bitboards[b] | bitboards[n];
+                if(pieces){ // pieces present
+                    if(eval() >= beta){ // position is good enough to continue
+                        // null pruning
+                        copy_board();
+                        side^=1;
+                        ply++;
+                        null_branches_explored++;
+                        move_utility null_move = min_value(beta-1, beta, depth - 1 -2);
+                        take_back();
+
+                        // fail high bc beta is still same
+                        if(null_move.utility >= beta){
+                            null_branches_pruned++;
+                            return {beta, 0};
+                        }
+                        
+                    }
+                }
+            }
+        }
+    }
 
     // create move list instance
     moves move_list[1];
@@ -2997,10 +3025,12 @@ move_utility max_value(int alpha, int beta, int depth){
 
     // another terminal state
     if(checkmate){
-        // store move in transposition as exact
-        // store_entry(compute_zobrist_hash(), current_move, depth, current_utility, EXACT);
+        // no legal moves + in check = checkmate, otherwise stalemate
+        int white_king_square = __builtin_ctzll(bitboards[K]);
+        int is_in_check = is_square_attacked(white_king_square, white);
         nodes++;
-        return {-20000, 0};
+        if(!is_in_check) return {0, 0};
+        else return {-20000, 0};
     }
     // store move in transposition as exact
     store_entry(compute_zobrist_hash(), current_move, depth, current_utility, EXACT);
@@ -3042,6 +3072,35 @@ move_utility min_value(int alpha, int beta, int depth){
         // cutoff
         if(alpha >= beta){
             return {ent.utility, ent.move};
+        }
+    }
+
+    // NULL MOVE
+    if(alpha != beta -1){ // not a null branch
+        if(depth >= 3 && ply >= 3){ // sufficient depth
+            int black_king_square = __builtin_ctzll(bitboards[k]);
+            int is_in_check = is_square_attacked(black_king_square, white);
+            if(!is_in_check){ // not in check
+                U64 pieces = bitboards[Q] | bitboards[R] | bitboards[B] | bitboards[N] |
+                             bitboards[q] | bitboards[r] | bitboards[b] | bitboards[n];
+                if(pieces){ // pieces present
+                    if(eval() <= alpha){ // position is good enough to continue
+                        // null pruning
+                        copy_board();
+                        side^=1;
+                        ply++;
+                        null_branches_explored++;
+                        move_utility null_move = max_value(alpha, alpha+1, depth - 1 -2);
+                        take_back();
+
+                        // fail low bc alpha is still same
+                        if(null_move.utility <= alpha){
+                            null_branches_pruned++;
+                            return {alpha, 0};
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -3105,10 +3164,12 @@ move_utility min_value(int alpha, int beta, int depth){
 
     // another terminal state
     if(checkmate){
-        // store move in transposition as exact
-        // store_entry(compute_zobrist_hash(), current_move, depth, current_utility, EXACT);
+        // no legal moves + in check = checkmate, otherwise stalemate
+        int black_king_square = __builtin_ctzll(bitboards[k]);
+        int is_in_check = is_square_attacked(black_king_square, black);
         nodes++;
-        return {20000, 0};
+        if(!is_in_check) return {0, 0};
+        else return {20000, 0};
     }
     // store move in transposition as exact
     store_entry(compute_zobrist_hash(), current_move, depth, current_utility, EXACT);
@@ -3262,7 +3323,7 @@ void parse_position(char *command)
         // if no "fen" command is available within command string
         if (current_char == NULL)
             // init chess board with start position
-            parse_fen(start_position);
+            parse_fen("r1bqk2r/p1pp1p2/2p2n1p/6p1/4P2B/2P5/P1P2PPP/R2QKB1R w KQkq g6 0 10 ");
             
         // found "fen" substring
         else
@@ -3387,6 +3448,7 @@ void uci_loop()
         if (strncmp(input, "isready", 7) == 0)
         {
             printf("readyok\n");
+            side ^= 1;
             continue;
         }
         
@@ -3560,6 +3622,7 @@ int main()
     // #define killer_position "rnbqkb1r/pp1p1pPp/8/2p1pP2/1P1P4/3P3P/P1P1P3/RNBQKBNR w KQkq e6 0 1"
     // #define cmk_position "r2q1rk1/ppp2ppp/2n1bn2/2b1p3/3pP3/3P1NPP/PPP1NPB1/R1BQ1RK1 b - - 0 9 "
 
+    //parse_fen("r1bqk2r/p1p2p2/2p2n1p/3p2p1/4P3/2P3B1/P1P2PPP/R2QKB1R w KQkq d6 0 11");
     parse_fen(start_position);
     print_board();
 
@@ -3569,6 +3632,7 @@ int main()
     std::cout << "Enter the depth: ";
     std::cin >> depth;
     iterative_deepening(depth, 1000);
+    std::cout << null_branches_explored << " : " << null_branches_pruned << endl;
     return 0;
     uci_loop();
     // std::string ans;
