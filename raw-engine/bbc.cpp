@@ -18,8 +18,6 @@
 \**********************************/
 
 #include <iostream>
-
-
 #include<iomanip>
 using std::cout, std::endl;
 
@@ -49,6 +47,7 @@ using std::cout, std::endl;
 #define tricky_position "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1 "
 #define killer_position "rnbqkb1r/pp1p1pPp/8/2p1pP2/1P1P4/3P3P/P1P1P3/RNBQKBNR w KQkq e6 0 1"
 #define cmk_position "r2q1rk1/ppp2ppp/2n1bn2/2b1p3/3pP3/3P1NPP/PPP1NPB1/R1BQ1RK1 b - - 0 9 "
+namespace bbc{
 
 // board squares
 enum {
@@ -3612,7 +3611,7 @@ void init_all()
  ==================================
 \**********************************/
 
-int main()
+int engine_main(int argc, char* argv[])
 {
     // init all
     init_all();
@@ -3703,3 +3702,8 @@ int main()
     return 0;
 }
 
+}
+
+int main(int argc, char* argv[]) {
+    return bbc::engine_main(argc, argv);
+}
