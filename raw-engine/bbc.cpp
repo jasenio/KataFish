@@ -2612,7 +2612,7 @@ struct entry{
 
 enum {LOWER_BOUND, EXACT, UPPER_BOUND};
 
-const int TABLE_SIZE = 16 * 1024 * 1024; // hold around 4 million entries
+const int TABLE_SIZE = 16 * 1024 * 1024; // hold around 64 million entries
 
 // init table
 entry transposition_table[TABLE_SIZE];
@@ -2889,6 +2889,7 @@ void sortMoves(moves *move_list, bool probed, int TT_move){
 /***************************
     ALPHA BETA SEARCH 
 /**************************/
+bool null = true;
 long null_branches_pruned = 0;
 long null_branches_explored = 0;
 
@@ -2934,7 +2935,7 @@ move_utility max_value(int alpha, int beta, int depth){
     }
 
     // NULL MOVE
-    if(alpha != beta -1){ // not a null branch
+    if(null && alpha != beta -1){ // not a null branch
         if(depth >= 3 && ply >= 3){ // sufficient depth
             int white_king_square = __builtin_ctzll(bitboards[K]);
             int is_in_check = is_square_attacked(white_king_square, black);
@@ -3076,7 +3077,7 @@ move_utility min_value(int alpha, int beta, int depth){
     }
 
     // NULL MOVE
-    if(alpha != beta -1){ // not a null branch
+    if(null && alpha != beta -1){ // not a null branch
         if(depth >= 3 && ply >= 3){ // sufficient depth
             int black_king_square = __builtin_ctzll(bitboards[k]);
             int is_in_check = is_square_attacked(black_king_square, white);
@@ -3312,7 +3313,8 @@ void parse_position(char *command)
     // parse UCI "startpos" command
     if (strncmp(command, "startpos", 8) == 0)
         // init chess board with start position
-        parse_fen(start_position);
+        parse_fen("r1bq1rk1/p1p2p2/2p2n1p/3p2p1/3QP3/2P3B1/P1P2PPP/R3KB1R w KQ - 2 12");
+        //parse_fen(start_position);
     
     // parse UCI "fen" command 
     else
@@ -3466,7 +3468,7 @@ void uci_loop()
         else if(!strncmp(input, "play", 4))
 		{   
             if(side==white || side == black){
-                 move_utility pair = iterative_deepening(8, 4);
+                 move_utility pair = iterative_deepening(9, 4);
                 if(!make_move(pair.move, all_moves)) side ^= 1;    
                     else{
                         std::string  move_str = " " + move_string(pair.move);
@@ -3623,6 +3625,8 @@ int main()
     // #define cmk_position "r2q1rk1/ppp2ppp/2n1bn2/2b1p3/3pP3/3P1NPP/PPP1NPB1/R1BQ1RK1 b - - 0 9 "
 
     //parse_fen("r1bqk2r/p1p2p2/2p2n1p/3p2p1/4P3/2P3B1/P1P2PPP/R2QKB1R w KQkq d6 0 11");
+    null = true;
+    //parse_fen("r1bq1rk1/p1p2p2/2p2n1p/3p2p1/3QP3/2P3B1/P1P2PPP/R3KB1R w KQ - 2 12");
     parse_fen(start_position);
     print_board();
 
@@ -3633,7 +3637,7 @@ int main()
     std::cin >> depth;
     iterative_deepening(depth, 1000);
     std::cout << null_branches_explored << " : " << null_branches_pruned << endl;
-    return 0;
+    //return 0;
     uci_loop();
     // std::string ans;
     // std::cout << "PERFT? (y/n): ";
@@ -3675,7 +3679,7 @@ int main()
         //     }
         //     printf("\n");
         // }
-    // }
+    // }2238336830/43613
 
     
 
