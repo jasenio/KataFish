@@ -18,6 +18,8 @@
 \**********************************/
 
 #include <iostream>
+#include "Common.hpp"
+#include "Board.hpp"
 #include<iomanip>
 using std::cout, std::endl;
 
@@ -39,36 +41,16 @@ using std::cout, std::endl;
 #include <cinttypes>
 
 // define bitboard data type
-#define U64 uint64_t
+// DEFINED IN BOARD
 
 // FEN dedug positions
-#define empty_board "8/8/8/8/8/8/8/8 b - - "
-#define start_position "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "
-#define tricky_position "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1 "
-#define killer_position "rnbqkb1r/pp1p1pPp/8/2p1pP2/1P1P4/3P3P/P1P1P3/RNBQKBNR w KQkq e6 0 1"
-#define cmk_position "r2q1rk1/ppp2ppp/2n1bn2/2b1p3/3pP3/3P1NPP/PPP1NPB1/R1BQ1RK1 b - - 0 9 "
+constexpr const char* empty_board =  "8/8/8/8/8/8/8/8 b - - ";
+constexpr const char* start_position = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 ";
+constexpr const char* tricky_position = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1 ";
+constexpr const char* killer_position = "rnbqkb1r/pp1p1pPp/8/2p1pP2/1P1P4/3P3P/P1P1P3/RNBQKBNR w KQkq e6 0 1";
+constexpr const char* cmk_position = "r2q1rk1/ppp2ppp/2n1bn2/2b1p3/3pP3/3P1NPP/PPP1NPB1/R1BQ1RK1 b - - 0 9 ";
+
 namespace bbc{
-
-// board squares
-enum {
-    a8, b8, c8, d8, e8, f8, g8, h8,
-    a7, b7, c7, d7, e7, f7, g7, h7,
-    a6, b6, c6, d6, e6, f6, g6, h6,
-    a5, b5, c5, d5, e5, f5, g5, h5,
-    a4, b4, c4, d4, e4, f4, g4, h4,
-    a3, b3, c3, d3, e3, f3, g3, h3,
-    a2, b2, c2, d2, e2, f2, g2, h2,
-    a1, b1, c1, d1, e1, f1, g1, h1, no_sq
-};
-
-// encode pieces
-enum { P, N, B, R, Q, K, p, n, b, r, q, k };
-
-// sides to move (colors)
-enum { white, black, both };
-
-// bishop and rook
-enum { rook, bishop };
 
 // castling rights binary encoding
 
@@ -88,54 +70,6 @@ enum { rook, bishop };
               white king => king side
 
 */
-
-enum { wk = 1, wq = 2, bk = 4, bq = 8 };
-
-// convert squares to coordinates
-const char *square_to_coordinates[] = {
-    "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
-    "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
-    "a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6",
-    "a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5",
-    "a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4",
-    "a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3",
-    "a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2",
-    "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
-};
-
-// ASCII pieces
-char ascii_pieces[12] = {'P', 'N', 'B', 'R', 'Q', 'K', 'p', 'n', 'b', 'r', 'q', 'k'};
-
-// unicode pieces
-std::string unicode_pieces[12] = {"♙", "♘", "♗", "♖", "♕", "♔", "♟︎", "♞", "♝", "♜", "♛", "♚"};
-
-// Convert ASCII character pieces to encoded constants
-std::unordered_map<char, int> char_pieces = {
-    {'P', P},
-    {'N', N},
-    {'B', B},
-    {'R', R},
-    {'Q', Q},
-    {'K', K},
-    {'p', p},
-    {'n', n},
-    {'b', b},
-    {'r', r},
-    {'q', q},
-    {'k', k}
-};
-
-// Promoted pieces
-std::unordered_map<int, char> promoted_pieces = {
-    {Q, 'q'},
-    {R, 'r'},
-    {B, 'b'},
-    {N, 'n'},
-    {q, 'q'},
-    {r, 'r'},
-    {b, 'b'},
-    {n, 'n'}
-};
 
 
 
@@ -242,24 +176,6 @@ std::unordered_map<int, char> promoted_pieces = {
 
 */
 
-// piece bitboards
-uint64_t bitboards[12];
-
-// occupancy bitboards
-U64 occupancies[3];
-
-// side to move
-int side;
-
-// ply of game
-int ply;
-
-// enpassant square
-int enpassant = no_sq; 
-
-// castling rights
-int castle;
-
 
 /**********************************\
  ==================================
@@ -322,9 +238,7 @@ U64 generate_magic_number()
 \**********************************/
 
 // set/get/pop bit macros
-#define set_bit(bitboard, square) ((bitboard) |= (1ULL << (square)))
-#define get_bit(bitboard, square) ((bitboard) & (1ULL << (square)))
-#define pop_bit(bitboard, square) ((bitboard) &= ~(1ULL << (square)))
+
 
 // count bits within a bitboard (Brian Kernighan's way)
 static inline int count_bits(U64 bitboard)
@@ -410,194 +324,194 @@ void print_bitboard(U64 bitboard)
 }
 
 // print board
-void print_board()
-{
-    // print offset
-    printf("\n");
+// void print_board()
+// {
+//     // print offset
+//     printf("\n");
 
-    // loop over board ranks
-    for (int rank = 0; rank < 8; rank++)
-    {
-        // loop ober board files
-        for (int file = 0; file < 8; file++)
-        {
-            // init square
-            int square = rank * 8 + file;
+//     // loop over board ranks
+//     for (int rank = 0; rank < 8; rank++)
+//     {
+//         // loop ober board files
+//         for (int file = 0; file < 8; file++)
+//         {
+//             // init square
+//             int square = rank * 8 + file;
             
-            // print ranks
-            if (!file)
-                printf("  %d ", 8 - rank);
+//             // print ranks
+//             if (!file)
+//                 printf("  %d ", 8 - rank);
             
-            // define piece variable
-            int piece = -1;
+//             // define piece variable
+//             int piece = -1;
             
-            // loop over all piece bitboards
-            for (int bb_piece = P; bb_piece <= k; bb_piece++)
-            {
-                // if there is a piece on current square
-                if (get_bit(bitboards[bb_piece], square))
-                    // get piece code
-                    piece = bb_piece;
-            }
+//             // loop over all piece bitboards
+//             for (int bb_piece = P; bb_piece <= k; bb_piece++)
+//             {
+//                 // if there is a piece on current square
+//                 if (get_bit(bitboards[bb_piece], square))
+//                     // get piece code
+//                     piece = bb_piece;
+//             }
             
-            // print different piece set depending on OS
-            #ifdef WIN64
-                printf(" %c", (piece == -1) ? '.' : ascii_pieces[piece]);
-            #else
-                printf(" %s", (piece == -1) ? "." : unicode_pieces[piece].c_str());
-            #endif
-        }
+//             // print different piece set depending on OS
+//             #ifdef WIN64
+//                 printf(" %c", (piece == -1) ? '.' : ascii_pieces[piece]);
+//             #else
+//                 printf(" %s", (piece == -1) ? "." : unicode_pieces[piece]);
+//             #endif
+//         }
         
-        // print new line every rank
-        printf("\n");
-    }
+//         // print new line every rank
+//         printf("\n");
+//     }
     
-    // print board files
-    printf("\n     a b c d e f g h\n\n");
+//     // print board files
+//     printf("\n     a b c d e f g h\n\n");
     
-    // print side to move
-    printf("     Side:     %s\n", !side ? "white" : "black");
+//     // print side to move
+//     printf("     Side:     %s\n", !side ? "white" : "black");
     
-    // print enpassant square
-    printf("     Enpassant:   %s\n", (enpassant != no_sq) ? square_to_coordinates[enpassant] : "no");
+//     // print enpassant square
+//     printf("     Enpassant:   %s\n", (enpassant != no_sq) ? square_to_coordinates[enpassant] : "no");
     
-    // print castling rights
-    printf("     Castling:  %c%c%c%c\n\n", (castle & wk) ? 'K' : '-',
-                                           (castle & wq) ? 'Q' : '-',
-                                           (castle & bk) ? 'k' : '-',
-                                           (castle & bq) ? 'q' : '-');
-}
+//     // print castling rights
+//     printf("     Castling:  %c%c%c%c\n\n", (castle & wk) ? 'K' : '-',
+//                                            (castle & wq) ? 'Q' : '-',
+//                                            (castle & bk) ? 'k' : '-',
+//                                            (castle & bq) ? 'q' : '-');
+// }
 
 // parse FEN string
-void parse_fen(const char *fen)
-{
-    // reset board position (bitboards)
-    memset(bitboards, 0ULL, sizeof(bitboards));
+// void parse_fen(const char *fen)
+// {
+//     // reset board position (bitboards)
+//     memset(bitboards, 0ULL, sizeof(bitboards));
     
-    // reset occupancies (bitboards)
-    memset(occupancies, 0ULL, sizeof(occupancies));
+//     // reset occupancies (bitboards)
+//     memset(occupancies, 0ULL, sizeof(occupancies));
     
-    // reset game state variables
-    side = 0;
-    enpassant = no_sq;
-    castle = 0;
+//     // reset game state variables
+//     side = 0;
+//     enpassant = no_sq;
+//     castle = 0;
     
-    // loop over board ranks
-    for (int rank = 0; rank < 8; rank++)
-    {
-        // loop over board files
-        for (int file = 0; file < 8; file++)
-        {
-            // init current square
-            int square = rank * 8 + file;
+//     // loop over board ranks
+//     for (int rank = 0; rank < 8; rank++)
+//     {
+//         // loop over board files
+//         for (int file = 0; file < 8; file++)
+//         {
+//             // init current square
+//             int square = rank * 8 + file;
             
-            // match ascii pieces within FEN string
-            if ((*fen >= 'a' && *fen <= 'z') || (*fen >= 'A' && *fen <= 'Z'))
-            {
-                // init piece type
-                int piece = char_pieces[*fen];
+//             // match ascii pieces within FEN string
+//             if ((*fen >= 'a' && *fen <= 'z') || (*fen >= 'A' && *fen <= 'Z'))
+//             {
+//                 // init piece type
+//                 int piece = char_pieces[*fen];
                 
-                // set piece on corresponding bitboard
-                set_bit(bitboards[piece], square);
+//                 // set piece on corresponding bitboard
+//                 set_bit(bitboards[piece], square);
                 
-                // increment pointer to FEN string
-                fen++;
-            }
+//                 // increment pointer to FEN string
+//                 fen++;
+//             }
             
-            // match empty square numbers within FEN string
-            if (*fen >= '0' && *fen <= '9')
-            {
-                // init offset (convert char 0 to int 0)
-                int offset = *fen - '0';
+//             // match empty square numbers within FEN string
+//             if (*fen >= '0' && *fen <= '9')
+//             {
+//                 // init offset (convert char 0 to int 0)
+//                 int offset = *fen - '0';
                 
-                // define piece variable
-                int piece = -1;
+//                 // define piece variable
+//                 int piece = -1;
                 
-                // loop over all piece bitboards
-                for (int bb_piece = P; bb_piece <= k; bb_piece++)
-                {
-                    // if there is a piece on current square
-                    if (get_bit(bitboards[bb_piece], square))
-                        // get piece code
-                        piece = bb_piece;
-                }
+//                 // loop over all piece bitboards
+//                 for (int bb_piece = P; bb_piece <= k; bb_piece++)
+//                 {
+//                     // if there is a piece on current square
+//                     if (get_bit(bitboards[bb_piece], square))
+//                         // get piece code
+//                         piece = bb_piece;
+//                 }
                 
-                // on empty current square
-                if (piece == -1)
-                    // decrement file
-                    file--;
+//                 // on empty current square
+//                 if (piece == -1)
+//                     // decrement file
+//                     file--;
                 
-                // adjust file counter
-                file += offset;
+//                 // adjust file counter
+//                 file += offset;
                 
-                // increment pointer to FEN string
-                fen++;
-            }
+//                 // increment pointer to FEN string
+//                 fen++;
+//             }
             
-            // match rank separator
-            if (*fen == '/')
-                // increment pointer to FEN string
-                fen++;
-        }
-    }
+//             // match rank separator
+//             if (*fen == '/')
+//                 // increment pointer to FEN string
+//                 fen++;
+//         }
+//     }
     
-    // got to parsing side to move (increment pointer to FEN string)
-    fen++;
+//     // got to parsing side to move (increment pointer to FEN string)
+//     fen++;
     
-    // parse side to move
-    (*fen == 'w') ? (side = white) : (side = black);
+//     // parse side to move
+//     (*fen == 'w') ? (side = white) : (side = black);
     
-    // go to parsing castling rights
-    fen += 2;
+//     // go to parsing castling rights
+//     fen += 2;
     
-    // parse castling rights
-    while (*fen != ' ')
-    {
-        switch (*fen)
-        {
-            case 'K': castle |= wk; break;
-            case 'Q': castle |= wq; break;
-            case 'k': castle |= bk; break;
-            case 'q': castle |= bq; break;
-            case '-': break;
-        }
+//     // parse castling rights
+//     while (*fen != ' ')
+//     {
+//         switch (*fen)
+//         {
+//             case 'K': castle |= wk; break;
+//             case 'Q': castle |= wq; break;
+//             case 'k': castle |= bk; break;
+//             case 'q': castle |= bq; break;
+//             case '-': break;
+//         }
 
-        // increment pointer to FEN string
-        fen++;
-    }
+//         // increment pointer to FEN string
+//         fen++;
+//     }
     
-    // got to parsing enpassant square (increment pointer to FEN string)
-    fen++;
+//     // got to parsing enpassant square (increment pointer to FEN string)
+//     fen++;
     
-    // parse enpassant square
-    if (*fen != '-')
-    {
-        // parse enpassant file & rank
-        int file = fen[0] - 'a';
-        int rank = 8 - (fen[1] - '0');
+//     // parse enpassant square
+//     if (*fen != '-')
+//     {
+//         // parse enpassant file & rank
+//         int file = fen[0] - 'a';
+//         int rank = 8 - (fen[1] - '0');
         
-        // init enpassant square
-        enpassant = rank * 8 + file;
-    }
+//         // init enpassant square
+//         enpassant = rank * 8 + file;
+//     }
     
-    // no enpassant square
-    else
-        enpassant = no_sq;
+//     // no enpassant square
+//     else
+//         enpassant = no_sq;
     
-    // loop over white pieces bitboards
-    for (int piece = P; piece <= K; piece++)
-        // populate white occupancy bitboard
-        occupancies[white] |= bitboards[piece];
+//     // loop over white pieces bitboards
+//     for (int piece = P; piece <= K; piece++)
+//         // populate white occupancy bitboard
+//         occupancies[white] |= bitboards[piece];
     
-    // loop over black pieces bitboards
-    for (int piece = p; piece <= k; piece++)
-        // populate white occupancy bitboard
-        occupancies[black] |= bitboards[piece];
+//     // loop over black pieces bitboards
+//     for (int piece = p; piece <= k; piece++)
+//         // populate white occupancy bitboard
+//         occupancies[black] |= bitboards[piece];
     
-    // init all occupancies
-    occupancies[both] |= occupancies[white];
-    occupancies[both] |= occupancies[black];
-}
+//     // init all occupancies
+//     occupancies[both] |= occupancies[white];
+//     occupancies[both] |= occupancies[black];
+// }
 
 
 /**********************************\
@@ -1359,39 +1273,29 @@ void print_attacked_squares(int side)
 */
 
 // encode move
-#define encode_move(source, target, piece, promoted, capture, double, enpassant, castling) \
-    (source) |          \
-    (target << 6) |     \
-    (piece << 12) |     \
-    (promoted << 16) |  \
-    (capture << 20) |   \
-    (double << 21) |    \
-    (enpassant << 22) | \
-    (castling << 23)    \
+inline constexpr int encode_move(
+    int source, int target, int piece, int promoted,
+    bool capture, bool double_push, bool enpassant, bool castling) noexcept
+{
+    // mask to avoid surprises if callers pass big ints
+    return  (int(source)   & 0x3f) |
+           ((int(target)   & 0x3f) << 6)  |
+           ((int(piece)    & 0x0f) << 12) |
+           ((int(promoted) & 0x0f) << 16) |
+           ((capture      ? 1u : 0u) << 20) |
+           ((double_push  ? 1u : 0u) << 21) |
+           ((enpassant    ? 1u : 0u) << 22) |
+           ((castling     ? 1u : 0u) << 23);
+}
     
-// extract source square
-#define get_move_source(move) (move & 0x3f)
-
-// extract target square
-#define get_move_target(move) ((move & 0xfc0) >> 6)
-
-// extract piece
-#define get_move_piece(move) ((move & 0xf000) >> 12)
-
-// extract promoted piece
-#define get_move_promoted(move) ((move & 0xf0000) >> 16)
-
-// extract capture flag
-#define get_move_capture(move) (move & 0x100000)
-
-// extract double pawn push flag
-#define get_move_double(move) (move & 0x200000)
-
-// extract enpassant flag
-#define get_move_enpassant(move) (move & 0x400000)
-
-// extract castling flag
-#define get_move_castling(move) (move & 0x800000)
+inline constexpr int  get_move_source(int m)     noexcept { return  (m & 0x3f); }
+inline constexpr int  get_move_target(int m)     noexcept { return ((m >> 6) & 0x3f); }
+inline constexpr int  get_move_piece(int m)      noexcept { return ((m >> 12) & 0xf); }
+inline constexpr int  get_move_promoted(int m)   noexcept { return ((m >> 16) & 0xf); }
+inline constexpr bool get_move_capture(int m)    noexcept { return  m & 0x100000; }
+inline constexpr bool get_move_double(int m)     noexcept { return  m & 0x200000; }
+inline constexpr bool get_move_enpassant(int m)  noexcept { return  m & 0x400000; }
+inline constexpr bool get_move_castling(int m)   noexcept { return  m & 0x800000; }
 
 // move list structure
 typedef struct {
@@ -1459,7 +1363,7 @@ void print_move_list(moves *move_list)
             printf("     %s%s%c   %s         %d         %d         %d         %d\n", square_to_coordinates[get_move_source(move)],
                                                                                   square_to_coordinates[get_move_target(move)],
                                                                                   get_move_promoted(move) ? promoted_pieces[get_move_promoted(move)] : ' ',
-                                                                                  unicode_pieces[get_move_piece(move)].c_str(),
+                                                                                  unicode_pieces[get_move_piece(move)],
                                                                                   get_move_capture(move) ? 1 : 0,
                                                                                   get_move_double(move) ? 1 : 0,
                                                                                   get_move_enpassant(move) ? 1 : 0,
@@ -1542,19 +1446,21 @@ void print_two_lists(int moves[], int moves2[], int length){
         cout << moves[i] << " : " << moves2[i] << endl;
     }
 }
-// preserve board state
-#define copy_board()                                                      \
-    U64 bitboards_copy[12], occupancies_copy[3];                          \
-    int side_copy, enpassant_copy, castle_copy, ply_copy;                           \
-    memcpy(bitboards_copy, bitboards, 96);                                \
-    memcpy(occupancies_copy, occupancies, 24);                            \
-    side_copy = side, enpassant_copy = enpassant, castle_copy = castle, ply_copy = ply;   \
 
-// restore board state
-#define take_back()                                                       \
-    memcpy(bitboards, bitboards_copy, 96);                                \
-    memcpy(occupancies, occupancies_copy, 24);                            \
-    side = side_copy, enpassant = enpassant_copy, castle = castle_copy, ply = ply_copy;   \
+// Legacy
+// // preserve board state
+// #define copy_board()                                                      \
+//     U64 bitboards_copy[12], occupancies_copy[3];                          \
+//     int side_copy, enpassant_copy, castle_copy, ply_copy;                           \
+//     memcpy(bitboards_copy, bitboards, 96);                                \
+//     memcpy(occupancies_copy, occupancies, 24);                            \
+//     side_copy = side, enpassant_copy = enpassant, castle_copy = castle, ply_copy = ply;   \
+
+// // restore board state
+// #define take_back()                                                       \
+//     memcpy(bitboards, bitboards_copy, 96);                                \
+//     memcpy(occupancies, occupancies_copy, 24);                            \
+//     side = side_copy, enpassant = enpassant_copy, castle = castle_copy, ply = ply_copy;   \
 
 // move types
 enum { all_moves, only_captures };
@@ -1594,7 +1500,9 @@ static inline int make_move(int move, int move_flag)
     if (move_flag == all_moves)
     {
         // preserve board state
-        copy_board();
+        Board copy;
+        save_board(copy, board);
+
         
         // parse move
         int source_square = get_move_source(move);
@@ -1737,7 +1645,7 @@ static inline int make_move(int move, int move_flag)
         if (is_square_attacked((side == white) ? __builtin_ctzll(bitboards[k]) : __builtin_ctzll(bitboards[K]), side))
         {
             // take move back
-            take_back();
+            restore_board(copy, board);
             
             // return illegal move
             return 0;
@@ -2225,25 +2133,30 @@ static inline void perft_driver(int depth)
 
     // check if checkmated
     //bool checkmate = true;
+    // printf("Depth: %d, Moves: %d\n", depth, move_list->count);
+    // printf("Side to move: %d\n", side);
 
     // loop over generated moves
     for (int move_count = 0; move_count < move_list->count; move_count++)
     {   
         // preserve board state
-        copy_board();
+        Board copy;
+        save_board(copy, board);
         
         // make move
         if (!make_move(move_list->moves[move_count], all_moves))
             // skip to the next move
             continue;
-        
+            
+        // printf("Before recurse: depth=%d, side=%d\n", depth-1, side);
         //  checkmate = false;
         // call perft driver recursively
         perft_driver(depth - 1);
         
         // take back
-        take_back();
+        restore_board(copy, board);
     }
+
     // if(checkmate){
     //     print_board();
     //     printf("%d\n", eval());
@@ -2274,7 +2187,8 @@ void perft_test(int depth)
     for (int move_count = 0; move_count < move_list->count; move_count++)
     {   
         // preserve board state
-        copy_board();
+        Board copy;
+        save_board(copy, board);
         
         // make move
         if (!make_move(move_list->moves[move_count], all_moves))
@@ -2291,7 +2205,7 @@ void perft_test(int depth)
         long old_nodes = nodes - cummulative_nodes;
         
         // take back
-        take_back();
+        restore_board(copy, board);
         
         // print move
         printf("     move: %s%s%c  nodes: %ld\n", square_to_coordinates[get_move_source(move_list->moves[move_count])],
@@ -2668,14 +2582,15 @@ int maxQS(int alpha, int beta){
     generate_moves(move_list);
 
     for(int move = 0; move < move_list->count; move++){
-        copy_board();
+        Board copy;
+        save_board(copy, board);
 
         if(!make_move(move, only_captures))
             continue;
 
         int utility = minQS(alpha,beta);
 
-        take_back();
+        restore_board(copy, board);
 
         if( utility >= beta )
             return beta;
@@ -2700,14 +2615,15 @@ int minQS(int alpha, int beta){
     generate_moves(move_list);
 
     for(int move = 0; move < move_list->count; move++){
-        copy_board();
+        Board copy;
+        save_board(copy, board);
 
         if(!make_move(move, only_captures))
             continue;
 
         int utility = maxQS(alpha,beta);
 
-        take_back();
+        restore_board(copy, board);
 
         if( utility <= alpha )
             return alpha;
@@ -2944,12 +2860,13 @@ move_utility max_value(int alpha, int beta, int depth){
                 if(pieces){ // pieces present
                     if(eval() >= beta){ // position is good enough to continue
                         // null pruning
-                        copy_board();
+                        Board copy;
+        save_board(copy, board);
                         side^=1;
                         ply++;
                         null_branches_explored++;
                         move_utility null_move = min_value(beta-1, beta, depth - 1 -2);
-                        take_back();
+                        restore_board(copy, board);
 
                         // fail high bc beta is still same
                         if(null_move.utility >= beta){
@@ -2984,7 +2901,8 @@ move_utility max_value(int alpha, int beta, int depth){
     for (int move_count = 0; move_count < move_list->count; move_count++)
     {   
         // preserve board state
-        copy_board();
+        Board copy;
+        save_board(copy, board);
         int move = move_list->moves[move_count];
 
         // make move
@@ -3008,7 +2926,7 @@ move_utility max_value(int alpha, int beta, int depth){
         }
 
         // take back
-        take_back();
+        restore_board(copy, board);
 
         // beta cutoff
         if (current_utility >= beta) {
@@ -3086,12 +3004,13 @@ move_utility min_value(int alpha, int beta, int depth){
                 if(pieces){ // pieces present
                     if(eval() <= alpha){ // position is good enough to continue
                         // null pruning
-                        copy_board();
+                        Board copy;
+        save_board(copy, board);
                         side^=1;
                         ply++;
                         null_branches_explored++;
                         move_utility null_move = max_value(alpha, alpha+1, depth - 1 -2);
-                        take_back();
+                        restore_board(copy, board);
 
                         // fail low bc alpha is still same
                         if(null_move.utility <= alpha){
@@ -3124,7 +3043,8 @@ move_utility min_value(int alpha, int beta, int depth){
     for (int move_count = 0; move_count < move_list->count; move_count++)
     {   
         // preserve board state
-        copy_board();
+        Board copy;
+        save_board(copy, board);
         
         int move = move_list->moves[move_count];
         // make move
@@ -3148,7 +3068,7 @@ move_utility min_value(int alpha, int beta, int depth){
         }
 
         // take back
-        take_back();
+        restore_board(copy, board);
 
         // alpha cutoff
         if (current_utility <= alpha) {
@@ -3540,11 +3460,13 @@ void uci_loop()
             int start = get_time_ms();
 
             nodes = 0;
+            printf("Running perft... \n");
             // perft
-            perft_driver(6);
+            perft_driver(5);
             // time taken to execute program
             printf("time taken to execute: %d ms\n", get_time_ms() - start);
             printf("nodes: %ld\n", nodes);
+            break;
         }
         
         // parse UCI "ucinewgame" command
@@ -3705,5 +3627,6 @@ int engine_main(int argc, char* argv[])
 }
 
 int main(int argc, char* argv[]) {
-    return bbc::engine_main(argc, argv);
+    bbc::engine_main(argc, argv);
+    return 0;
 }
