@@ -6,7 +6,6 @@
 #include <unordered_map>
 
 namespace bbc {
-    class Board;
 
     using U64 = std::uint64_t;
 
@@ -71,16 +70,6 @@ namespace bbc {
     // sides to move (colors)
     enum { white, black, both };
 
-    
-
-    // move define
-    struct Move{
-        int moves[256];
-        int scores[256];
-        // move count
-        int count;
-    };
-
     // castling rights binary encoding
 
     /*
@@ -127,15 +116,5 @@ namespace bbc {
     inline constexpr bool get_bit(U64 bb, int sq) noexcept { return (bb >> sq) & 1ULL; }
     inline constexpr void pop_bit(U64& bb, int sq) noexcept { bb &= ~(1ULL << sq); }
 
-    extern Board            board;
-    extern U64              (&bitboards)[12];
-    extern U64              (&occupancies)[3];
-    extern int              &side;
-    extern int              &enpassant;
-    extern int              &castle;
-    extern int              &ply;
 
-    // Legacy free functions
-    void parse_fen(const char *fen);
-    void print_board();
 } // namespace bbc

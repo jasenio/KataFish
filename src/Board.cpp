@@ -13,7 +13,7 @@ namespace bbc {
         ply       = 0;
     }
     /* ---------- parseFEN ---------- */
-    void Board::parseFEN(const char* fen)
+    void Board::parse_fen(const char* fen)
     {
             /*  👉  Paste the body of your old  parse_fen(const char*)  here.
             For every former global, switch to a member:
@@ -156,7 +156,7 @@ namespace bbc {
     }
 
     /* ---------- print ---------- */
-    void Board::print() const
+    void Board::print_board() const
     {
         // print offset
         printf("\n");

@@ -2,7 +2,7 @@
 #include "Common.hpp"
 
 namespace bbc {
-namespace Attacks {
+
 
 // ------------------
 // Table definitions
@@ -14,14 +14,6 @@ U64 bishop_masks[64];
 U64 rook_masks[64];
 U64 bishop_attacks[64][512];
 U64 rook_attacks[64][4096];
-U64 bishop_magic_numbers[64];
-U64 rook_magic_numbers[64];
-
-// ------------------
-// Bit helpers
-// ------------------
-inline void set_bit(U64 &bb, int sq) { bb |= (1ULL << sq); }
-inline void pop_bit(U64 &bb, int sq) { bb &= ~(1ULL << sq); }
 
 // ------------------
 // Attack masking
@@ -171,12 +163,11 @@ static void init_sliders(int bishop) {
     }
 }
 
-void init() {
+void init_attacks() {
     // fill rook_magic_numbers[] and bishop_magic_numbers[] with your baked values
     init_leapers();
-    init_sliders(1);
-    init_sliders(0);
+    init_sliders(rook);
+    init_sliders(bishop);
 }
 
-} // namespace Attacks
 } // namespace bbc
