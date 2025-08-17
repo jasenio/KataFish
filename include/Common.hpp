@@ -3,13 +3,18 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#ifdef WIN64
+    #include <windows.h>
+#else
+    # include <sys/time.h>
+#endif
 
 namespace bbc {
 
     using U64 = std::uint64_t;
 
     // encode pieces
-    enum { P, N, B, R, Q, K, p, n, b, r, q, k };
+    enum { no_piece = -1, P, N, B, R, Q, K, p, n, b, r, q, k };
 
     // bishop and rook
     enum { rook, bishop };
@@ -105,8 +110,6 @@ namespace bbc {
     // ---------------------------------------------------------------
     // Lookup helpers that need those enums
     // ---------------------------------------------------------------
-
-
     // MAKE CONST LATER !! !! **** 
 
     // no_sq, set_bit, get_bit, … remain here too
@@ -114,6 +117,88 @@ namespace bbc {
     inline constexpr void set_bit(U64& bb, int sq) noexcept { bb |= 1ULL << sq; }
     inline constexpr bool get_bit(U64 bb, int sq) noexcept { return (bb >> sq) & 1ULL; }
     inline constexpr void pop_bit(U64& bb, int sq) noexcept { bb &= ~(1ULL << sq); }
+
+    // get time in milliseconds
+    inline int get_time_ms()
+    {
+        #ifdef WIN64
+            return GetTickCount();
+        #else
+            struct timeval time_value;
+            gettimeofday(&time_value, NULL);
+            return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
+        #endif
+    }
+
+    
+    /**********************************\
+     ==================================
+    
+            Random numbers
+    
+    ==================================
+    \**********************************/
+
+    // pseudo random number state
+    inline unsigned int random_state = 1804289383;
+
+    // generate 32-bit pseudo legal numbers
+    inline unsigned int get_random_U32_number()
+    {
+        // get current state
+        unsigned int number = random_state;
+        
+        // XOR shift algorithm
+        number ^= number << 13;
+        number ^= number >> 17;
+        number ^= number << 5;
+        
+        // update random number state
+        random_state = number;
+        
+        // return random number
+        return number;
+    }
+
+    // generate 64-bit pseudo legal numbers
+    inline U64 get_random_U64_number()
+    {
+        // define 4 random numbers
+        U64 n1, n2, n3, n4;
+        
+        // init random numbers slicing 16 bits from MS1B side
+        n1 = (U64)(get_random_U32_number()) & 0xFFFF;
+        n2 = (U64)(get_random_U32_number()) & 0xFFFF;
+        n3 = (U64)(get_random_U32_number()) & 0xFFFF;
+        n4 = (U64)(get_random_U32_number()) & 0xFFFF;
+        
+        // return random number
+        return n1 | (n2 << 16) | (n3 << 32) | (n4 << 48);
+    }
+
+
+    /**********************************\
+     ==================================
+    
+            Bit manipulations
+    
+    ==================================
+    \**********************************/
+
+    // count bits within a bitboard (Brian Kernighan's way)
+    static inline int count_bits(U64 bitboard)
+    {
+        // use built in functions    
+        return __builtin_popcountll(bitboard);
+
+    }
+
+    // get least significant 1st bit index
+    static inline int get_ls1b_index(U64 bitboard)
+    {
+        return (bitboard) ? __builtin_ctzll(bitboard) : -1;
+    }
+
 
 
 } // namespace bbc

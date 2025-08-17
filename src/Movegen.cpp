@@ -81,6 +81,7 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     auto& enpassant = board.enpassant;
     auto& castle = board.castle;
     auto& ply = board.ply;
+    auto& piece_at =board.piece_at;
 
     if (move_flag != all_moves) {
         if (!get_move_capture(move)) return 0; // only accept captures
@@ -110,38 +111,36 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
         st.cap_sq   = (side == white)? target_square + 8 : target_square - 8;
     } else if (capture) {
         // read target piece type
-        int start = (side == white) ? p : P;
-        int end   = (side == white) ? k : K;
-        int found = -1;
-        for (int t = start; t <= end; ++t)
-            if (get_bit(bitboards[t], target_square)) { found = t; break; }
-        st.captured = found;
+        st.captured = piece_at[target_square];
         st.cap_sq   = target_square;
     } else {
-        st.captured = -1;
+        st.captured = no_piece;
         st.cap_sq   = no_sq;
     }
 
     // Move piece
     pop_bit(bitboards[piece], source_square);
     set_bit(bitboards[piece], target_square);
+    piece_at[source_square] = no_piece;
+    piece_at[target_square] = piece;
 
     // Captures
     if (capture && !enpass) {
-        if (st.captured != -1) pop_bit(bitboards[st.captured], target_square);
+        if (st.captured != no_piece) pop_bit(bitboards[st.captured], target_square);
     }
 
     // Promotion
     if (promoted_piece) {
         pop_bit(bitboards[(side == white) ? P : p], target_square);
         set_bit(bitboards[promoted_piece], target_square);
+        piece_at[target_square] = promoted_piece;
     }
 
     // En-passant capture
     // may be wrong ???                                        C   H E CK ****
     if (enpass) {
-        (side == white) ? pop_bit(bitboards[p], target_square + 8)
-                        : pop_bit(bitboards[P], target_square - 8);
+        if(side == white) pop_bit(bitboards[p], target_square + 8), piece_at[target_square+8]=no_piece;
+        else pop_bit(bitboards[P], target_square - 8), piece_at[target_square-8]=no_piece;
     }
 
     // En-passant square
@@ -153,10 +152,10 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     // Castling rook move
     if (castl) {
         switch (target_square) {
-            case g1: pop_bit(bitboards[R], h1); set_bit(bitboards[R], f1); break;
-            case c1: pop_bit(bitboards[R], a1); set_bit(bitboards[R], d1); break;
-            case g8: pop_bit(bitboards[r], h8); set_bit(bitboards[r], f8); break;
-            case c8: pop_bit(bitboards[r], a8); set_bit(bitboards[r], d8); break;
+            case g1: pop_bit(bitboards[R], h1); set_bit(bitboards[R], f1); piece_at[h1]=no_piece; piece_at[f1] = R; break;
+            case c1: pop_bit(bitboards[R], a1); set_bit(bitboards[R], d1); piece_at[a1]=no_piece; piece_at[d1] = R; break;
+            case g8: pop_bit(bitboards[r], h8); set_bit(bitboards[r], f8); piece_at[h8]=no_piece; piece_at[f8] = r; break;
+            case c8: pop_bit(bitboards[r], a8); set_bit(bitboards[r], d8); piece_at[a8]=no_piece; piece_at[d8] = r; break;
             default: break;
         }
     }
@@ -176,7 +175,7 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     occupancies[us] ^= (fromBB ^ toBB);
 
     // Remove captured piece from opponent occupancy
-    if (st.captured != -1) {
+    if (st.captured != no_piece) {
         occupancies[them] ^= (1ULL << st.cap_sq); // EP uses st.cap_sq
     }
 

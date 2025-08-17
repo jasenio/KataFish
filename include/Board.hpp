@@ -2,6 +2,9 @@
 #include <array>
 #include <cstdint>
 #include <string_view>
+#include <cinttypes>
+#include <stdio.h>
+
 #include "Common.hpp"
 #include "Move.hpp"
 
@@ -13,6 +16,7 @@ namespace bbc {
         // raw state
         U64                     bitboards[12];
         U64                     occupancies[3];
+        int                     piece_at[64];
         int                     side;
         int                      enpassant;
         int                     castle;
@@ -32,6 +36,40 @@ namespace bbc {
         int cap_sq;         // NO_SQ if none; EP uses the pawn’s square
     };
 
+    // print bitboard
+    inline void print_bitboard(U64 bitboard)
+    {
+        // print offset
+        printf("\n");
+
+        // loop over board ranks
+        for (int rank = 0; rank < 8; rank++)
+        {
+            // loop over board files
+            for (int file = 0; file < 8; file++)
+            {
+                // convert file & rank into square index
+                int square = rank * 8 + file;
+                
+                // print ranks
+                if (!file)
+                    printf("  %d ", 8 - rank);
+                
+                // print bit state (either 1 or 0)
+                printf(" %d", get_bit(bitboard, square) ? 1 : 0);
+                
+            }
+            
+            // print new line every rank
+            printf("\n");
+        }
+        
+        // print board files
+        printf("\n     a b c d e f g h\n\n");
+        
+        // print bitboard as unsigned decimal number
+        printf("     Bitboard: %" PRIu64 "\n\n", bitboard);
+    }
 
     // take back and restore functions
     inline void copy_board(Board& copy,  Board const& b)   {copy = b;}

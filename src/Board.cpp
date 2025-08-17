@@ -6,12 +6,12 @@
 
 namespace bbc {
     // constructor
-    Board::Board(){
-        side      = white;
-        enpassant = no_sq;
-        castle    = 0;
-        ply       = 0;
-    }
+    Board::Board() :
+        side(white),
+        enpassant(no_sq),
+        castle(0),
+        ply(0)
+    {}
     /* ---------- parseFEN ---------- */
     void Board::parse_fen(const char* fen)
     {
@@ -31,6 +31,9 @@ namespace bbc {
         
         // reset occupancies (bitboards)
         std::memset(this->occupancies, 0ULL, sizeof(this->occupancies));
+
+        // reset piece memory
+        std::memset(this->piece_at, no_piece, sizeof(this->piece_at));
         
         // reset game state variables
         this->side = 0;
@@ -53,8 +56,8 @@ namespace bbc {
                     int piece = char_to_piece(*fen);
                     
                     // set piece on corresponding bitboard
-
                     set_bit(this->bitboards[piece], square);
+                    this->piece_at[square] = piece;
                     
                     // increment pointer to FEN string
                     fen++;
@@ -67,7 +70,7 @@ namespace bbc {
                     int offset = *fen - '0';
                     
                     // define piece variable
-                    int piece = -1;
+                    int piece = no_piece;
                     
                     // loop over all piece bitboards
                     for (int bb_piece = P; bb_piece <= k; bb_piece++)
@@ -215,6 +218,7 @@ namespace bbc {
 
     }
 
+    // doesn't use piece_at
     void save_board(Board& b, StateInfo& st, const int move) {
         int target_square   = get_move_target(move);
         bool capture        = get_move_capture(move);
@@ -252,6 +256,7 @@ namespace bbc {
         auto& bitboards   = b.bitboards;
         auto& occupancies = b.occupancies;
         auto& side = b.side;
+        auto& piece_at = b.piece_at;
 
         int source_square   = get_move_source(move);
         int target_square   = get_move_target(move);
@@ -266,10 +271,13 @@ namespace bbc {
 
         // 1) Undo castling rook move (if any)
         if (castl) {
-            if (target_square == g1) { pop_bit(bitboards[R], f1); set_bit(bitboards[R], h1); }
-            else if (target_square == c1) { pop_bit(bitboards[R], d1); set_bit(bitboards[R], a1); }
-            else if (target_square == g8) { pop_bit(bitboards[r], f8); set_bit(bitboards[r], h8); }
-            else /* c8 */     { pop_bit(bitboards[r], d8); set_bit(bitboards[r], a8); }
+            switch (target_square) {
+                case g1: pop_bit(bitboards[R], f1); set_bit(bitboards[R], h1); piece_at[h1]=R; piece_at[f1] = no_piece; break;
+                case c1: pop_bit(bitboards[R], d1); set_bit(bitboards[R], a1); piece_at[a1]=R; piece_at[d1] = no_piece; break;
+                case g8: pop_bit(bitboards[r], f8); set_bit(bitboards[r], h8); piece_at[h8]=r; piece_at[f8] = no_piece; break;
+                case c8: pop_bit(bitboards[r], d8); set_bit(bitboards[r], a8); piece_at[a8]=r; piece_at[d8] = no_piece; break;
+                default: break;
+            }
         }
 
         // 2) Undo promotion OR normal piece move
@@ -278,19 +286,26 @@ namespace bbc {
             if (moverIsWhite) {
                 pop_bit(bitboards[promoted_piece], target_square);
                 set_bit(bitboards[P], source_square);
+                piece_at[target_square] = no_piece;
+                piece_at[source_square] = P;
             } else {
                 pop_bit(bitboards[promoted_piece], target_square);
                 set_bit(bitboards[p], source_square);
+                piece_at[target_square] = no_piece;
+                piece_at[source_square] = p;
             }
         } else {
             // Move the original mover back from 'to' to 'from'
             pop_bit(bitboards[piece], target_square);
             set_bit(bitboards[piece], source_square);
+            piece_at[target_square] = no_piece;
+            piece_at[source_square] = piece;
         }
 
         // 3) Restore captured piece (normal or EP)
         if (st.captured != -1) {
             set_bit(bitboards[st.captured], st.cap_sq);
+            piece_at[st.cap_sq] = st.captured;
             if (enpass) {
                 // If EP, the 'to' square was empty; nothing to clear there now.
                 // We already moved the mover back above; just put pawn at cap_sq.

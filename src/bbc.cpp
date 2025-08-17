@@ -23,8 +23,9 @@
 #include "Move.hpp"
 #include "Movegen.hpp"
 #include "Eval.hpp"
+#include "Perft.hpp"
 
-#include <iostream>
+#include<iostream>
 #include<iomanip>
 using std::cout, std::endl;
 
@@ -35,15 +36,11 @@ using std::cout, std::endl;
 #include <string.h>
 #include <string>
 #include <unordered_map>
-#ifdef WIN64
-    #include <windows.h>
-#else
-    # include <sys/time.h>
-#endif
+
 
 // bit board data type
 #include <cstdint>
-#include <cinttypes>
+
 
 // define bitboard data type
 // DEFINED IN BOARD
@@ -59,224 +56,8 @@ constexpr const char* kiwipete_position ="r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q
 namespace bbc{
 
 
-/**********************************\
- ==================================
- 
-           Random numbers
- 
- ==================================
-\**********************************/
-
-// pseudo random number state
-unsigned int random_state = 1804289383;
-
-// generate 32-bit pseudo legal numbers
-unsigned int get_random_U32_number()
-{
-    // get current state
-    unsigned int number = random_state;
-    
-    // XOR shift algorithm
-    number ^= number << 13;
-    number ^= number >> 17;
-    number ^= number << 5;
-    
-    // update random number state
-    random_state = number;
-    
-    // return random number
-    return number;
-}
-
-// generate 64-bit pseudo legal numbers
-U64 get_random_U64_number()
-{
-    // define 4 random numbers
-    U64 n1, n2, n3, n4;
-    
-    // init random numbers slicing 16 bits from MS1B side
-    n1 = (U64)(get_random_U32_number()) & 0xFFFF;
-    n2 = (U64)(get_random_U32_number()) & 0xFFFF;
-    n3 = (U64)(get_random_U32_number()) & 0xFFFF;
-    n4 = (U64)(get_random_U32_number()) & 0xFFFF;
-    
-    // return random number
-    return n1 | (n2 << 16) | (n3 << 32) | (n4 << 48);
-}
-
-
-
-/**********************************\
- ==================================
- 
-          Bit manipulations
- 
- ==================================
-\**********************************/
-
-// count bits within a bitboard (Brian Kernighan's way)
-static inline int count_bits(U64 bitboard)
-{
-    // use built in functions    
-    return __builtin_popcountll(bitboard);
-
-}
-
-// get least significant 1st bit index
-static inline int get_ls1b_index(U64 bitboard)
-{
-     return (bitboard) ? __builtin_ctzll(bitboard) : -1;
-}
-
-
-/**********************************\
- ==================================
- 
-           Input & Output
- 
- ==================================
-\**********************************/
-
-// print bitboard
-void print_bitboard(U64 bitboard)
-{
-    // print offset
-    printf("\n");
-
-    // loop over board ranks
-    for (int rank = 0; rank < 8; rank++)
-    {
-        // loop over board files
-        for (int file = 0; file < 8; file++)
-        {
-            // convert file & rank into square index
-            int square = rank * 8 + file;
-            
-            // print ranks
-            if (!file)
-                printf("  %d ", 8 - rank);
-            
-            // print bit state (either 1 or 0)
-            printf(" %d", get_bit(bitboard, square) ? 1 : 0);
-            
-        }
-        
-        // print new line every rank
-        printf("\n");
-    }
-    
-    // print board files
-    printf("\n     a b c d e f g h\n\n");
-    
-    // print bitboard as unsigned decimal number
-    printf("     Bitboard: %" PRIu64 "\n\n", bitboard);
-}
-
-
-// get time in milliseconds
-int get_time_ms()
-{
-    #ifdef WIN64
-        return GetTickCount();
-    #else
-        struct timeval time_value;
-        gettimeofday(&time_value, NULL);
-        return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
-    #endif
-}
-
 // leaf nodes (number of positions reached during the test of the move generator at a given depth)
 long nodes;
-
-// perft driver
-static inline void perft_driver(Board& board, int depth)
-{
-    StateInfo st;
-
-    // reccursion escape condition
-    if (depth == 0)
-    {
-        // increment nodes count (count reached positions)
-        nodes++;
-        return;
-    }
-    
-    // create move list instance
-    MoveList move_list;
-    
-    // generate moves
-    generate_moves(move_list, board);
-
-    // loop over generated moves
-    int num_moves = move_list.count;
-    
-    for (int move_count = 0; move_count < num_moves; move_count++)
-    {           
-        // make move
-        if (!make_move(move_list.moves[move_count], all_moves, board, st))
-            // skip to the next move
-            continue;
-
-        // call perft driver recursively
-        perft_driver(board, depth - 1);
-        
-        // take back
-        restore_board(board, st, move_list.moves[move_count]);
-    }
-}
-
-// perft test
-void perft_test(Board& board, int depth)
-{
-    printf("\n     Performance test\n\n");
-    
-    // create move list instance
-    MoveList move_list;
-    
-    // generate moves
-    generate_moves(move_list, board);
-
-    StateInfo st;
-    
-    // init start time
-    long start = get_time_ms();
-    
-    // loop over generated moves
-    for (int move_count = 0; move_count < move_list.count; move_count++)
-    {   
-        // preserve board state
-        Board copy;
-        copy_board(copy, board);
-        
-        // make move
-        if (!make_move(move_list.moves[move_count], all_moves, board, st))
-            // skip to the next move
-            continue;
-        
-        // cummulative nodes
-        long cummulative_nodes = nodes;
-        
-        // call perft driver recursively
-        perft_driver(board, depth - 1);
-        
-        // old nodes
-        long old_nodes = nodes - cummulative_nodes;
-        
-        // take back
-        restore_copy(copy, board);
-        
-        // print move
-        printf("     move: %s%s%c  nodes: %ld\n", square_to_coordinates[get_move_source(move_list.moves[move_count])],
-                                                 square_to_coordinates[get_move_target(move_list.moves[move_count])],
-                                                 get_move_promoted(move_list.moves[move_count]) ? promoted_pieces[get_move_promoted(move_list.moves[move_count])] : ' ',
-                                                 old_nodes);
-    }
-    
-    // print results
-    printf("\n    Depth: %d\n", depth);
-    printf("    Nodes: %ld\n", nodes);
-    printf("     Time: %ld\n\n", get_time_ms() - start);
-}
 
 
 /**********************************\
@@ -295,9 +76,9 @@ struct move_utility {
     int move;
 };
 
-/***************************
-    TRANSPOSITION TABLE 
-/**************************/
+//***************************
+//    TRANSPOSITION TABLE 
+//**************************
 // zobrist hashing functions for transposition
 uint64_t random_pieces[768];
 uint64_t random_side;
@@ -401,9 +182,9 @@ void store_entry(uint64_t hash, int move, int depth, int utility, int node_type)
     
 }
 
-/***************************
-    QUIESCENCE SEARCH
-/**************************/
+//***************************/
+//    QUIESCENCE SEARCH
+//**************************/
 int minQS(int alpha, int beta, Board& board);
 
 // maximize quiescence search
@@ -474,9 +255,10 @@ int minQS(int alpha, int beta, Board& board){
     return beta;
 }
 
-/***************************
-    CAPTURES V NON-CAPTURES 
-/**************************/
+//***************************
+//  CAPTURES V NON-CAPTURES 
+//**************************/
+
 // MVV LVA table
 int MVV_LVA[12][12] = {
     // attacks by columns >
@@ -495,9 +277,9 @@ int MVV_LVA[12][12] = {
     {10, 11, 12, 13, 14, 15, 10, 11, 12, 13, 14, 15},
 };
 
-/***************************
-        KILLER MOVES
-/**************************/
+//***************************/
+//        KILLER MOVES
+//**************************/
 const int MAX_PLY = 256;
 const int MAX_KILL_STORED = 2;
 int killerMoves[MAX_PLY][MAX_KILL_STORED] = {};
@@ -516,11 +298,10 @@ void storeKillerMove(int move, int ply){
 }
 
 
-/***************************
-        SORT MOVES  STILL NEEDS OPTIMIZATION !!! ! ! ! !!
-/**************************/
+//***************************
+//        SORT MOVES  STILL NEEDS OPTIMIZATION !!! ! ! ! !!
+//**************************/
 void sortMoves(MoveList& move_list, bool probed, int TT_move, const Board& board){
-    const auto& side = board.side;
     const auto& ply = board.ply;
     const auto& bitboards = board.bitboards;
 
@@ -532,7 +313,6 @@ void sortMoves(MoveList& move_list, bool probed, int TT_move, const Board& board
     int added_moves = 0;
 
     int killer_moves[2] = {};
-    int killer_index = 0;
     // check correct swaps
     // int initial[256] = {};
 
@@ -645,9 +425,9 @@ void sortMoves(MoveList& move_list, bool probed, int TT_move, const Board& board
 }
 
 
-/***************************
-    ALPHA BETA SEARCH 
-/**************************/
+//***************************
+//    ALPHA BETA SEARCH 
+//**************************
 bool null = true;
 long null_branches_pruned = 0;
 long null_branches_explored = 0;
@@ -660,9 +440,6 @@ move_utility min_value(int alpha, int beta, int depth, Board& board);
 move_utility max_value(int alpha, int beta, int depth, Board& board){
     auto& bitboards = board.bitboards;
     auto& side = board.side;
-    auto& occupancies = board.occupancies;
-    auto& enpassant = board.enpassant;
-    auto& castle = board.castle;
     auto& ply = board.ply;
 
     // terminate at cutoff when depth is 0
@@ -811,9 +588,6 @@ move_utility max_value(int alpha, int beta, int depth, Board& board){
 move_utility min_value(int alpha, int beta, int depth, Board& board){
     auto& bitboards = board.bitboards;
     auto& side = board.side;
-    auto& occupancies = board.occupancies;
-    auto& enpassant = board.enpassant;
-    auto& castle = board.castle;
     auto& ply = board.ply;
 
     // terminate at cutoff when depth is 0
@@ -1194,11 +968,7 @@ void parse_go(char *command, Board& board)
 // main UCI loop
 void uci_loop(Board& board)
 {
-    auto& bitboards = board.bitboards;
     auto& side = board.side;
-    auto& occupancies = board.occupancies;
-    auto& enpassant = board.enpassant;
-    auto& castle = board.castle;
 
     // reset STDIN & STDOUT buffers
     setbuf(stdin, NULL);
@@ -1302,10 +1072,10 @@ void uci_loop(Board& board)
         {
             int start = get_time_ms();
 
-            nodes = 0;
+            U64 nodes = 0;
             printf("Running perft... \n");
             // perft
-            perft_driver(board, 6);
+            nodes = perft_driver(board, 6);
             // time taken to execute program
             printf("time taken to execute: %d ms\n", get_time_ms() - start);
             printf("nodes: %ld\n", nodes);
