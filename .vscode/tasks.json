@@ -17,6 +17,7 @@
         "isDefault": true
       }
     },
+
     {
       "label": "Run app",
       "type": "shell",
@@ -27,12 +28,126 @@
       ],
       "group": "test"
     },
+
     {
-      "label": "Build and Run",
+      "label": "Build and Run (DEBUG)",
       "dependsOrder": "sequence",
       "dependsOn": [
         "Build all sources",
         "Run app"
+      ],
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+
+    /* ---------- Benchmark builds ---------- */
+
+    {
+      "label": "Build (benchmark O3 baseline)",
+      "type": "shell",
+      "command": "/bin/bash",
+      "args": [
+        "-c",
+        "mkdir -p \"${workspaceFolder}/bin\" && g++ -std=c++17 -O3 -DNDEBUG -Wall -Wextra -pedantic-errors -Weffc++ -Wno-unused-parameter -I\"${workspaceFolder}/include\" ${workspaceFolder}/src/*.cpp -o \"${workspaceFolder}/bin/myapp_o3\""
+      ],
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "group": {
+        "kind": "build"
+      }
+    },
+    {
+      "label": "Run app (benchmark O3 baseline)",
+      "type": "shell",
+      "command": "/bin/bash",
+      "args": [
+        "-c",
+        "\"${workspaceFolder}/bin/myapp_o3\""
+      ],
+      "group": "test"
+    },
+    {
+      "label": "Build and Run (benchmark O3 baseline)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Build (benchmark O3 baseline)",
+        "Run app (benchmark O3 baseline)"
+      ],
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+
+    {
+      "label": "Build (benchmark native+LTO)",
+      "type": "shell",
+      "command": "/bin/bash",
+      "args": [
+        "-c",
+        "mkdir -p \"${workspaceFolder}/bin\" && g++ -std=c++17 -O3 -march=native -flto -DNDEBUG -Wall -Wextra -pedantic-errors -Weffc++ -Wno-unused-parameter -I\"${workspaceFolder}/include\" ${workspaceFolder}/src/*.cpp -o \"${workspaceFolder}/bin/myapp_native\""
+      ],
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "group": {
+        "kind": "build"
+      }
+    },
+    {
+      "label": "Run app (benchmark native+LTO)",
+      "type": "shell",
+      "command": "/bin/bash",
+      "args": [
+        "-c",
+        "\"${workspaceFolder}/bin/myapp_native\""
+      ],
+      "group": "test"
+    },
+    {
+      "label": "Build and Run (benchmark native+LTO)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Build (benchmark native+LTO)",
+        "Run app (benchmark native+LTO)"
+      ],
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+
+    {
+      "label": "Build (benchmark Ofast — EXPERIMENTAL)",
+      "type": "shell",
+      "command": "/bin/bash",
+      "args": [
+        "-c",
+        "mkdir -p \"${workspaceFolder}/bin\" && g++ -std=c++17 -Ofast -march=native -flto -DNDEBUG -Wall -Wextra -pedantic-errors -Weffc++ -Wno-unused-parameter -I\"${workspaceFolder}/include\" ${workspaceFolder}/src/*.cpp -o \"${workspaceFolder}/bin/myapp_ofast\""
+      ],
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "group": {
+        "kind": "build"
+      }
+    },
+    {
+      "label": "Run app (benchmark Ofast — EXPERIMENTAL)",
+      "type": "shell",
+      "command": "/bin/bash",
+      "args": [
+        "-c",
+        "\"${workspaceFolder}/bin/myapp_ofast\""
+      ],
+      "group": "test"
+    },
+    {
+      "label": "Build and Run (benchmark Ofast — EXPERIMENTAL)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Build (benchmark Ofast — EXPERIMENTAL)",
+        "Run app (benchmark Ofast — EXPERIMENTAL)"
       ],
       "problemMatcher": [
         "$gcc"

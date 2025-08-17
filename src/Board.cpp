@@ -215,4 +215,126 @@ namespace bbc {
 
     }
 
+    void save_board(Board& b, StateInfo& st, const int move) {
+        int target_square   = get_move_target(move);
+        bool capture        = get_move_capture(move);
+        bool enpass         = get_move_enpassant(move);
+
+
+        // snapshot the old board fields
+        st.old_castle = b.castle;
+        st.old_ep     = b.enpassant;
+        st.old_ply    = b.ply;
+
+        // Fill capture info so undo knows what to put back
+        if (enpass) {
+            st.captured = (b.side == white) ? p : P;
+            st.cap_sq   = (b.side == white)
+                        ? (target_square+ 8)
+                        : (target_square- 8);
+        } else if (capture) {
+            // Find which piece sits on target (only opponent range)
+            const int start = (b.side == white) ? p : P;
+            const int end   = (b.side == white) ? k : K;
+            int found = -1;
+            for (int t = start; t <= end; ++t) {
+                if (get_bit(b.bitboards[t], target_square)) { found = t; break; }
+            }
+            st.captured = found;
+            st.cap_sq   = target_square;
+        } else {
+            st.captured = -1;
+            st.cap_sq   = no_sq;
+        }
+    }
+    
+    void restore_board(Board& b, const StateInfo& st, const int move) {
+        auto& bitboards   = b.bitboards;
+        auto& occupancies = b.occupancies;
+        auto& side = b.side;
+
+        int source_square   = get_move_source(move);
+        int target_square   = get_move_target(move);
+        int piece           = get_move_piece(move);
+        int promoted_piece  = get_move_promoted(move);
+        bool enpass         = get_move_enpassant(move);
+        bool castl          = get_move_castling(move);
+
+        // After make_move, b.side has already been flipped.
+        // The mover’s color is therefore (b.side ^ 1).
+        const bool moverIsWhite = ((side ^ 1) == white);
+
+        // 1) Undo castling rook move (if any)
+        if (castl) {
+            if (target_square == g1) { pop_bit(bitboards[R], f1); set_bit(bitboards[R], h1); }
+            else if (target_square == c1) { pop_bit(bitboards[R], d1); set_bit(bitboards[R], a1); }
+            else if (target_square == g8) { pop_bit(bitboards[r], f8); set_bit(bitboards[r], h8); }
+            else /* c8 */     { pop_bit(bitboards[r], d8); set_bit(bitboards[r], a8); }
+        }
+
+        // 2) Undo promotion OR normal piece move
+        if (promoted_piece) {
+            // Remove promoted piece from 'to', put pawn back on 'from'
+            if (moverIsWhite) {
+                pop_bit(bitboards[promoted_piece], target_square);
+                set_bit(bitboards[P], source_square);
+            } else {
+                pop_bit(bitboards[promoted_piece], target_square);
+                set_bit(bitboards[p], source_square);
+            }
+        } else {
+            // Move the original mover back from 'to' to 'from'
+            pop_bit(bitboards[piece], target_square);
+            set_bit(bitboards[piece], source_square);
+        }
+
+        // 3) Restore captured piece (normal or EP)
+        if (st.captured != -1) {
+            set_bit(bitboards[st.captured], st.cap_sq);
+            if (enpass) {
+                // If EP, the 'to' square was empty; nothing to clear there now.
+                // We already moved the mover back above; just put pawn at cap_sq.
+            }
+        }
+
+        // 4) Restore lightweight board fields
+        b.castle    = st.old_castle;
+        b.enpassant = st.old_ep;
+        b.ply       = st.old_ply;
+
+        // 5) Rebuild occupancies (since your make_move rebuilds them)
+        const int moverSide   = moverIsWhite ? white : black;
+        const int victimSide  = moverIsWhite ? black : white;
+
+        // The mover was moved back: to -> from
+        const U64 moveMask = (1ULL << source_square) ^ (1ULL << target_square);
+        occupancies[moverSide] ^= moveMask;
+
+        // If there was a capture (normal or EP), we just restored the victim bit above.
+        // So we need to flip that bit back on in the victim's occupancy as well.
+        if (st.captured != -1) {
+            occupancies[victimSide] ^= (1ULL << st.cap_sq);
+        }
+
+        // If this was a castle, we also moved the rook back; flip its squares.
+        if (castl) {
+            int rook_from, rook_to;
+            if (moverIsWhite) {
+                if (target_square == g1)      { rook_from = f1; rook_to = h1; } // undoing: f1 -> h1
+                else /* target_square == c1 */{ rook_from = d1; rook_to = a1; } // undoing: d1 -> a1
+            } else {
+                if (target_square == g8)      { rook_from = f8; rook_to = h8; }
+                else /* target_square == c8 */{ rook_from = d8; rook_to = a8; }
+            }
+            const U64 rookMask = (1ULL << rook_from) ^ (1ULL << rook_to);
+            occupancies[moverSide] ^= rookMask;
+        }
+
+        // Recompute 'both' with one OR (cheap, and keeps it exact)
+        occupancies[both] = occupancies[white] | occupancies[black];
+
+        // 6) Flip side back to the original mover
+        b.side ^= 1;
+    }
+    
 } // namespace bbc

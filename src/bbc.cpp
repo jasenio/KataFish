@@ -17,11 +17,14 @@
  ==================================
 \**********************************/
 
-#include <iostream>
 #include "Common.hpp"
 #include "Board.hpp"
 #include "Attacks.hpp"
+#include "Move.hpp"
 #include "Movegen.hpp"
+#include "Eval.hpp"
+
+#include <iostream>
 #include<iomanip>
 using std::cout, std::endl;
 
@@ -51,6 +54,7 @@ constexpr const char* start_position = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQK
 constexpr const char* tricky_position = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1 ";
 constexpr const char* killer_position = "rnbqkb1r/pp1p1pPp/8/2p1pP2/1P1P4/3P3P/P1P1P3/RNBQKBNR w KQkq e6 0 1";
 constexpr const char* cmk_position = "r2q1rk1/ppp2ppp/2n1bn2/2b1p3/3pP3/3P1NPP/PPP1NPB1/R1BQ1RK1 b - - 0 9 ";
+constexpr const char* kiwipete_position ="r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - ";
 
 namespace bbc{
 
@@ -187,6 +191,8 @@ long nodes;
 // perft driver
 static inline void perft_driver(Board& board, int depth)
 {
+    StateInfo st;
+
     // reccursion escape condition
     if (depth == 0)
     {
@@ -201,40 +207,22 @@ static inline void perft_driver(Board& board, int depth)
     // generate moves
     generate_moves(move_list, board);
 
-    // check if checkmated
-    //bool checkmate = true;
-
     // loop over generated moves
-    for (int move_count = 0; move_count < move_list.count; move_count++)
-    {   
-        // preserve board state
-        Board copy;
-        save_board(copy, board);
-        
+    int num_moves = move_list.count;
+    
+    for (int move_count = 0; move_count < num_moves; move_count++)
+    {           
         // make move
-        if (!make_move(move_list.moves[move_count], all_moves, board))
+        if (!make_move(move_list.moves[move_count], all_moves, board, st))
             // skip to the next move
             continue;
-            
-        // printf("Before recurse: depth=%d, side=%d\n", depth-1, side);
-        //  checkmate = false;
+
         // call perft driver recursively
         perft_driver(board, depth - 1);
         
         // take back
-        restore_board(copy, board);
+        restore_board(board, st, move_list.moves[move_count]);
     }
-
-    // if(checkmate){
-    //     print_board();
-    //     printf("%d\n", eval());
-    //     if(side==white){
-    //         printf("White was checkmated");
-    //     }
-    //     else{
-    //         printf("Black was checkmated");
-    //     }
-    // }
 }
 
 // perft test
@@ -247,6 +235,8 @@ void perft_test(Board& board, int depth)
     
     // generate moves
     generate_moves(move_list, board);
+
+    StateInfo st;
     
     // init start time
     long start = get_time_ms();
@@ -256,10 +246,10 @@ void perft_test(Board& board, int depth)
     {   
         // preserve board state
         Board copy;
-        save_board(copy, board);
+        copy_board(copy, board);
         
         // make move
-        if (!make_move(move_list.moves[move_count], all_moves, board))
+        if (!make_move(move_list.moves[move_count], all_moves, board, st))
             // skip to the next move
             continue;
         
@@ -273,7 +263,7 @@ void perft_test(Board& board, int depth)
         long old_nodes = nodes - cummulative_nodes;
         
         // take back
-        restore_board(copy, board);
+        restore_copy(copy, board);
         
         // print move
         printf("     move: %s%s%c  nodes: %ld\n", square_to_coordinates[get_move_source(move_list.moves[move_count])],
@@ -286,230 +276,6 @@ void perft_test(Board& board, int depth)
     printf("\n    Depth: %d\n", depth);
     printf("    Nodes: %ld\n", nodes);
     printf("     Time: %ld\n\n", get_time_ms() - start);
-}
-/**********************************\
- ==================================
- 
-               Evaluation
-
-  AIMA CODE IMPLEMENTATION HERE
- 
- ==================================
-\**********************************/
-
-// define piece square
-int pawn_table[64] = {
-    0,  0,  0,  0,  0,  0,  0,  0,
-    50, 50, 50, 50, 50, 50, 50, 50,
-    10, 10, 20, 30, 30, 20, 10, 10,
-    5,  5, 10, 25, 25, 10,  5,  5,
-    0,  0,  0, 20, 20,  0,  0,  0,
-    5, -5,-10,  0,  0,-10, -5,  5,
-    5, 10, 10,-20,-20, 10, 10,  5,
-    0,  0,  0,  0,  0,  0,  0,  0
-};
-
-int knight_table[64] = {
-    -50,-40,-30,-30,-30,-30,-40,-50,
-    -40,-20,  0,  0,  0,  0,-20,-40,
-    -30,  0, 10, 15, 15, 10,  0,-30,
-    -30,  5, 15, 20, 20, 15,  5,-30,
-    -30,  0, 15, 20, 20, 15,  0,-30,
-    -30,  5, 10, 15, 15, 10,  5,-30,
-    -40,-20,  0,  5,  5,  0,-20,-40,
-    -50,-40,-30,-30,-30,-30,-40,-50,
-};
-
-int bishop_table[64] = {
-    -20,-10,-10,-10,-10,-10,-10,-20,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-    -10,  0,  5, 10, 10,  5,  0,-10,
-    -10,  5,  5, 10, 10,  5,  5,-10,
-    -10,  0, 10, 10, 10, 10,  0,-10,
-    -10, 10, 10, 10, 10, 10, 10,-10,
-    -10,  5,  0,  0,  0,  0,  5,-10,
-    -20,-10,-10,-10,-10,-10,-10,-20,
-};
-
-int rook_table[64] = {
-    0,  0,  0,  0,  0,  0,  0,  0,
-    5, 10, 10, 10, 10, 10, 10,  5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    -5,  0,  0,  0,  0,  0,  0, -5,
-    0,  0,  0,  5,  5,  0,  0,  0
-};
-
-int queen_table[64] = {
-    -20,-10,-10, -5, -5,-10,-10,-20,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-    -10,  0,  5,  5,  5,  5,  0,-10,
-    -5,  0,  5,  5,  5,  5,  0, -5,
-    0,  0,  5,  5,  5,  5,  0, -5,
-    -10,  5,  5,  5,  5,  5,  0,-10,
-    -10,  0,  5,  0,  0,  0,  0,-10,
-    -20,-10,-10, -5, -5,-10,-10,-20
-};
-
-int king_middle_table[64] = {
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -20,-30,-30,-40,-40,-30,-30,-20,
-    -10,-20,-20,-20,-20,-20,-20,-10,
-    20, 20,  0,  0,  0,  0, 20, 20,
-    20, 30, 10,  0,  0, 10, 30, 20
-};
-
-int king_end_table[64] = {
-    -50,-40,-30,-20,-20,-30,-40,-50,
-    -30,-20,-10,  0,  0,-10,-20,-30,
-    -30,-10, 20, 30, 30, 20,-10,-30,
-    -30,-10, 30, 40, 40, 30,-10,-30,
-    -30,-10, 30, 40, 40, 30,-10,-30,
-    -30,-10, 20, 30, 30, 20,-10,-30,
-    -30,-30,  0,  0,  0,  0,-30,-30,
-    -50,-30,-30,-30,-30,-30,-30,-50
-};
-/*********************************
- * 
- * Make more efficient and Pestos??
- * 
- * 
- ************************************/
-int eval(const Board& board){
-    const auto& bitboards = board.bitboards;
-    // BASIC MATERIAL SCORE, not middle/endgame taken into account
-    int countPieces[12] = {};
-
-    uint64_t white_pawns = bitboards[P];
-    uint64_t black_pawns = bitboards[p];
-    uint64_t white_knights = bitboards[N];
-    uint64_t black_knights = bitboards[n];
-    uint64_t white_bishops = bitboards[B];
-    uint64_t black_bishops = bitboards[b];
-    uint64_t white_rooks = bitboards[R];
-    uint64_t black_rooks = bitboards[r];
-    uint64_t white_queens = bitboards[Q];
-    uint64_t black_queens = bitboards[q];
-    uint64_t white_king = bitboards[K];
-    uint64_t black_king = bitboards[k];
-
-    
-    // PIECE SQUARE TABLE EVALUATION
-    int utility_table = 0;
-
-    // calc pawns
-    while (white_pawns) {
-        countPieces[P]++;
-        int pawn_square = __builtin_ctzll(white_pawns);
-        utility_table += pawn_table[pawn_square];
-        pop_bit(white_pawns, pawn_square);
-    }
-
-    while (black_pawns) {
-        countPieces[p]++;
-        int pawn_square = __builtin_ctzll(black_pawns);
-        utility_table -= pawn_table[63 - pawn_square];
-        pop_bit(black_pawns, pawn_square);
-    }
-
-    // calc knights
-    while (white_knights) {
-        countPieces[N]++;
-        int knight_square = __builtin_ctzll(white_knights);
-        utility_table += knight_table[knight_square];
-        pop_bit(white_knights, knight_square);
-    }
-
-    while (black_knights) {
-        countPieces[n]++;
-        int knight_square = __builtin_ctzll(black_knights);
-        utility_table -= knight_table[63 - knight_square];
-        pop_bit(black_knights, knight_square);
-    }
-
-    // calc bishops
-    while (white_bishops) {
-        countPieces[B]++;
-        int bishop_square = __builtin_ctzll(white_bishops);
-        utility_table += bishop_table[bishop_square];
-        pop_bit(white_bishops, bishop_square);
-    }
-
-    while (black_bishops) {
-        countPieces[b]++;
-        int bishop_square = __builtin_ctzll(black_bishops);
-        utility_table -= bishop_table[63 - bishop_square];
-        pop_bit(black_bishops, bishop_square);
-    }
-
-    // calc rooks
-    while (white_rooks) {
-        countPieces[R]++;
-        int rook_square = __builtin_ctzll(white_rooks);
-        utility_table += rook_table[rook_square];
-        pop_bit(white_rooks, rook_square);
-    }
-
-    while (black_rooks) {
-        countPieces[r]++;
-        int rook_square = __builtin_ctzll(black_rooks);
-        utility_table -= rook_table[63 - rook_square];
-        pop_bit(black_rooks, rook_square);
-    }
-
-    // calc queens
-    while (white_queens) {
-        countPieces[Q]++;
-        int queen_square = __builtin_ctzll(white_queens);
-        utility_table += queen_table[queen_square];
-        pop_bit(white_queens, queen_square);
-    }
-
-    while (black_queens) {
-        countPieces[q]++;
-        int queen_square = __builtin_ctzll(black_queens);
-        utility_table -= queen_table[63 - queen_square];
-        pop_bit(black_queens, queen_square);
-    }
-
-    // calculate score based on centipawns
-    int utility_material = 0;
-    // count material
-    utility_material += 100 * (countPieces[P] - countPieces[p]);
-    utility_material += 320 * (countPieces[N] - countPieces[n]);
-    utility_material += 330 * (countPieces[B] - countPieces[b]);
-    utility_material += 500 * (countPieces[R] - countPieces[r]);
-    utility_material += 900 * (countPieces[Q] - countPieces[q]);
-
-    // end game starts when less than 7 major/minor pieces left
-    bool end_game = (countPieces[N] + countPieces[n] +
-                    countPieces[B] + countPieces[b] +
-                    countPieces[R] + countPieces[r] +
-                    countPieces[Q] + countPieces[q] <= 6);
-
-    // calc kings depending on endgame
-    while (white_king) {
-        countPieces[K]++;
-        int king_square = __builtin_ctzll(white_king);
-        utility_table += end_game ? king_end_table[king_square] : king_middle_table[king_square];
-        pop_bit(white_king, king_square);
-    }
-
-    while (black_king) {
-        countPieces[k]++;
-        int king_square = __builtin_ctzll(black_king);
-        utility_table -= end_game ? king_end_table[63 - king_square] : king_middle_table[63 - king_square];
-        pop_bit(black_king, king_square);
-    }
-
-    utility_material += 20000 * (countPieces[K] - countPieces[k]);
-
-    return utility_material + utility_table;
 }
 
 
@@ -652,17 +418,18 @@ int maxQS(int alpha, int beta, Board& board){
 
     MoveList move_list;
     generate_moves(move_list, board);
+    StateInfo st;
 
     for(int move = 0; move < move_list.count; move++){
         Board copy;
-        save_board(copy, board);
+        copy_board(copy, board);
 
-        if(!make_move(move, only_captures, board))
+        if(!make_move(move, only_captures, board, st))
             continue;
 
         int utility = minQS(alpha,beta, board);
 
-        restore_board(copy, board);
+        restore_copy(copy, board);
 
         if( utility >= beta )
             return beta;
@@ -685,17 +452,18 @@ int minQS(int alpha, int beta, Board& board){
 
     MoveList move_list;
     generate_moves(move_list, board);
+    StateInfo st;
 
     for(int move = 0; move < move_list.count; move++){
         Board copy;
-        save_board(copy, board);
+        copy_board(copy, board);
 
-        if(!make_move(move, only_captures, board))
+        if(!make_move(move, only_captures, board, st))
             continue;
 
         int utility = maxQS(alpha,beta, board);
 
-        restore_board(copy, board);
+        restore_copy(copy, board);
 
         if( utility <= alpha )
             return alpha;
@@ -944,12 +712,12 @@ move_utility max_value(int alpha, int beta, int depth, Board& board){
                     if(eval(board) >= beta){ // position is good enough to continue
                         // null pruning
                         Board copy;
-                        save_board(copy, board);
+                        copy_board(copy, board);
                         side^=1;
                         ply++;
                         null_branches_explored++;
                         move_utility null_move = min_value(beta-1, beta, depth - 1 -2, board);
-                        restore_board(copy, board);
+                        restore_copy(copy, board);
 
                         // fail high bc beta is still same
                         if(null_move.utility >= beta){
@@ -968,6 +736,7 @@ move_utility max_value(int alpha, int beta, int depth, Board& board){
     
     // generate moves
     generate_moves(move_list, board);
+    StateInfo st;
 
 
     // lost king is worst utility
@@ -985,11 +754,11 @@ move_utility max_value(int alpha, int beta, int depth, Board& board){
     {   
         // preserve board state
         Board copy;
-        save_board(copy, board);
+        copy_board(copy, board);
         int move = move_list.moves[move_count];
 
         // make move
-        if (!make_move(move, all_moves, board))
+        if (!make_move(move, all_moves, board, st))
             // skip to the next move
             continue;
         
@@ -1009,7 +778,7 @@ move_utility max_value(int alpha, int beta, int depth, Board& board){
         }
 
         // take back
-        restore_board(copy, board);
+        restore_copy(copy, board);
 
         // beta cutoff
         if (current_utility >= beta) {
@@ -1095,12 +864,12 @@ move_utility min_value(int alpha, int beta, int depth, Board& board){
                     if(eval(board) <= alpha){ // position is good enough to continue
                         // null pruning
                         Board copy;
-        save_board(copy, board);
+                        copy_board(copy, board);
                         side^=1;
                         ply++;
                         null_branches_explored++;
                         move_utility null_move = max_value(alpha, alpha+1, depth - 1 -2, board);
-                        restore_board(copy, board);
+                        restore_copy(copy, board);
 
                         // fail low bc alpha is still same
                         if(null_move.utility <= alpha){
@@ -1119,6 +888,7 @@ move_utility min_value(int alpha, int beta, int depth, Board& board){
     
     // generate moves
     generate_moves(move_list, board);
+    StateInfo st;
 
     // ** MOVE ORDERING ** //
     sortMoves(move_list, probed, ent.move, board);
@@ -1134,11 +904,11 @@ move_utility min_value(int alpha, int beta, int depth, Board& board){
     {   
         // preserve board state
         Board copy;
-        save_board(copy, board);
+        copy_board(copy, board);
         
         int move = move_list.moves[move_count];
         // make move
-        if (!make_move(move, all_moves, board))
+        if (!make_move(move, all_moves, board, st))
             // skip to the next move
             continue;
 
@@ -1158,7 +928,7 @@ move_utility min_value(int alpha, int beta, int depth, Board& board){
         }
 
         // take back
-        restore_board(copy, board);
+        restore_copy(copy, board);
 
         // alpha cutoff
         if (current_utility <= alpha) {
@@ -1367,9 +1137,11 @@ void parse_position(char *command, Board& board)
             if (move == 0)
                 // break out of the loop
                 break;
+
+            StateInfo st;
             
             // make move on the chess board
-            make_move(move, all_moves, board);
+            make_move(move, all_moves, board, st);
             
             // move current character mointer to the end of current move
             while (*current_char && *current_char != ' ') current_char++;
@@ -1482,43 +1254,18 @@ void uci_loop(Board& board)
         }
         else if(!strncmp(input, "play", 4))
 		{   
+            StateInfo st;
             if(side==white || side == black){
                  move_utility pair = iterative_deepening(9, 4, board);
-                if(!make_move(pair.move, all_moves, board)) side ^= 1;    
+                if(!make_move(pair.move, all_moves, board, st)) side ^= 1;    
                     else{
                         std::string  move_str = " " + move_string(pair.move);
                         line.append(move_str.c_str());  
                     } 
                 board.print_board(); 
             }
-
         }
-        else if(!strncmp(input, "depth6", 5))
-		{   
-            if(side==white || side == black){
-                 move_utility pair = iterative_deepening(6, 40, board);
-                if(!make_move(pair.move, all_moves, board)) side ^= 1;    
-                    else{
-                        std::string  move_str = " " + move_string(pair.move);
-                        line.append(move_str.c_str());  
-                    } 
-                board.print_board(); 
-            }
 
-        }
-        else if(!strncmp(input, "depth9", 5))
-		{   
-            if(side==white || side == black){
-                 move_utility pair = iterative_deepening(9, 40, board);
-                if(!make_move(pair.move, all_moves, board)) side ^= 1;    
-                    else{
-                        std::string  move_str = " " + move_string(pair.move);
-                        line.append(move_str.c_str());  
-                    } 
-                board.print_board(); 
-            }
-
-        }
         else if(!strncmp(input, "move", 4))
 		{   
 
@@ -1529,9 +1276,9 @@ void uci_loop(Board& board)
                 if (*moves == ' ')
                 {
                     moves++;  
-                 
+                    StateInfo st;
                     int move = parse_move(moves, board);  
-                    make_move(move, all_moves, board); 
+                    make_move(move, all_moves, board, st); 
                     if(move!=0){
                         std::string  move_str = " " + move_string(move);
                         line.append(move_str.c_str());  
@@ -1558,7 +1305,7 @@ void uci_loop(Board& board)
             nodes = 0;
             printf("Running perft... \n");
             // perft
-            perft_driver(board, 5);
+            perft_driver(board, 6);
             // time taken to execute program
             printf("time taken to execute: %d ms\n", get_time_ms() - start);
             printf("nodes: %ld\n", nodes);

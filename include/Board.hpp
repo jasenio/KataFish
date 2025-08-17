@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <string_view>
 #include "Common.hpp"
+#include "Move.hpp"
+
 
 namespace bbc {
 
@@ -12,7 +14,7 @@ namespace bbc {
         U64                     bitboards[12];
         U64                     occupancies[3];
         int                     side;
-        int                     enpassant;
+        int                      enpassant;
         int                     castle;
         int                     ply;
 
@@ -21,11 +23,24 @@ namespace bbc {
         void print_board() const;
 
     };
+
+    struct StateInfo {
+        int old_castle;
+        int old_ep;
+        int old_ply;        // optional if you just --ply on undo
+        int captured;       // piece enum or NO_PIECE
+        int cap_sq;         // NO_SQ if none; EP uses the pawn’s square
+    };
+
+
     // take back and restore functions
-    inline void save_board(Board& copy,  Board const& b)   {copy = b;}
+    inline void copy_board(Board& copy,  Board const& b)   {copy = b;}
 
-    inline void restore_board( Board const& copy, Board& b)   {b = copy;}
+    inline void restore_copy( Board const& copy, Board& b)   {b = copy;}
 
+    void save_board(Board& b, StateInfo& st, const int move);
+
+    void restore_board(Board& b, const StateInfo& st, const int move);
 }  // namespace bbc
 
 // castling rights binary encoding

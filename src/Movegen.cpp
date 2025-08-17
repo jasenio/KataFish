@@ -8,28 +8,6 @@
 namespace bbc {
 
 // -----------------------------
-// Local (translation-unit) constants
-// -----------------------------
-// Castling rights update by square; only used here -> keep TU-local.
-static const int castling_rights[64] = {
-     7, 15, 15, 15,  3, 15, 15, 11,
-    15, 15, 15, 15, 15, 15, 15, 15,
-    15, 15, 15, 15, 15, 15, 15, 15,
-    15, 15, 15, 15, 15, 15, 15, 15,
-    15, 15, 15, 15, 15, 15, 15, 15,
-    15, 15, 15, 15, 15, 15, 15, 15,
-    15, 15, 15, 15, 15, 15, 15, 15,
-    13, 15, 15, 15, 12, 15, 15, 14
-};
-
-// -----------------------------
-// Add move
-// -----------------------------
-void add_move(MoveList& list, int move) {
-    list.moves[list.count++] = move;
-}
-
-// -----------------------------
 // Attack queries
 // -----------------------------
 int is_square_attacked(const Board& board, int square, int side_) {
@@ -66,6 +44,7 @@ void print_attacked_squares(const Board& board, int side_) {
     std::printf("\n     a b c d e f g h\n\n");
 }
 
+
 // checkmate helpers
 inline bool in_check_now(const Board& board) {
     const auto& side = board.side;
@@ -80,10 +59,11 @@ inline bool in_check_now(const Board& board) {
 inline bool has_legal_move(Board& board) {
     MoveList list; 
     generate_moves(list, board);
+    StateInfo st;
     for (int i = 0; i < list.count; ++i) {
-        Board snap; save_board(snap, board);
-        if (make_move(list.moves[i], all_moves, board)) {
-            restore_board(snap, board);
+        Board snap; copy_board(snap, board);
+        if (make_move(list.moves[i], all_moves, board, st)) {
+            restore_copy(snap, board);
             return true;
         }
         // if make_move failed it already restored
@@ -92,86 +72,9 @@ inline bool has_legal_move(Board& board) {
 }
 
 // -----------------------------
-// Printing helpers
-// -----------------------------
-void print_move(int move) {
-    std::printf("%s%s%c\n", square_to_coordinates[get_move_source(move)],
-                        square_to_coordinates[get_move_target(move)],
-                        promoted_pieces[get_move_promoted(move)]);
-}
-
-std::string move_string(int move) {
-    return std::string(square_to_coordinates[get_move_source(move)]) +
-           std::string(square_to_coordinates[get_move_target(move)]) +
-           std::string(1, promoted_pieces[get_move_promoted(move)]);
-}
-
-void print_move_list(MoveList& list) {
-    if (!list.count) { std::printf("\n     No move in the move list!\n"); return; }
-
-    std::printf("\n     move    piece     capture   double    enpass    castling\n\n");
-    for (int i = 0; i < list.count; ++i) {
-        int m = list.moves[i];
-#ifdef WIN64
-        std::printf("      %s%s%c   %c         %d         %d         %d         %d\n",
-            square_to_coordinates[get_move_source(m)],
-            square_to_coordinates[get_move_target(m)],
-            get_move_promoted(m) ? promoted_pieces[get_move_promoted(m)] : ' ',
-            ascii_pieces[get_move_piece(m)],
-            get_move_capture(m) ? 1 : 0,
-            get_move_double(m) ? 1 : 0,
-            get_move_enpassant(m) ? 1 : 0,
-            get_move_castling(m) ? 1 : 0);
-#else
-        std::printf("     %s%s%c   %s         %d         %d         %d         %d\n",
-            square_to_coordinates[get_move_source(m)],
-            square_to_coordinates[get_move_target(m)],
-            get_move_promoted(m) ? promoted_pieces[get_move_promoted(m)] : ' ',
-            unicode_pieces[get_move_piece(m)],
-            get_move_capture(m) ? 1 : 0,
-            get_move_double(m) ? 1 : 0,
-            get_move_enpassant(m) ? 1 : 0,
-            get_move_castling(m) ? 1 : 0);
-#endif
-    }
-    std::printf("\n\n     Total number of moves: %d\n\n", list.count);
-}
-
-// -----------------------------
-// Debug list compare helpers
-// -----------------------------
-static void sort_desc(int* a, int len) {
-    for (int i = 0; i < len; ++i) {
-        int max_idx = i;
-        for (int j = i; j < len; ++j) if (a[j] > a[max_idx]) max_idx = j;
-        std::swap(a[i], a[max_idx]);
-    }
-}
-
-bool ensure_same(int a[], int b[], int length) {
-    // copy to avoid side-effects? The original mutated; we keep behavior.
-    sort_desc(a, length);           // original first loop used 256; we fix to `length`
-    sort_desc(b, length);
-    for (int i = 0; i < length; ++i) {
-        if (a[i] != b[i]) {
-            std::cout << a[i] << " " << b[i] << std::endl;
-            print_two_lists(a, b, length);
-            throw std::exception();
-        }
-    }
-    return true;
-}
-
-void print_two_lists(int a[], int b[], int length) {
-    sort_desc(a, length);
-    sort_desc(b, length);
-    for (int i = 0; i < length; ++i) std::cout << a[i] << " : " << b[i] << std::endl;
-}
-
-// -----------------------------
 // Make move (with legality filter)
 // -----------------------------
-int make_move(int move, int move_flag, Board& board) {
+int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     auto& bitboards = board.bitboards;
     auto& side = board.side;
     auto& occupancies = board.occupancies;
@@ -179,14 +82,13 @@ int make_move(int move, int move_flag, Board& board) {
     auto& castle = board.castle;
     auto& ply = board.ply;
 
-
     if (move_flag != all_moves) {
         if (!get_move_capture(move)) return 0; // only accept captures
         // fallthrough to play it
     }
 
     // Preserve board state
-    Board copy; save_board(copy, board);
+    // Board copy; save_board(copy, board);
 
     // Fields
     int source_square   = get_move_source(move);
@@ -198,17 +100,35 @@ int make_move(int move, int move_flag, Board& board) {
     bool enpass         = get_move_enpassant(move);
     bool castl          = get_move_castling(move);
 
+    // Remember State Info
+    st.old_castle = board.castle;
+    st.old_ep     = board.enpassant;
+    st.old_ply    = board.ply;
+
+    if (enpass) {
+        st.captured = (side == white)? p : P;
+        st.cap_sq   = (side == white)? target_square + 8 : target_square - 8;
+    } else if (capture) {
+        // read target piece type
+        int start = (side == white) ? p : P;
+        int end   = (side == white) ? k : K;
+        int found = -1;
+        for (int t = start; t <= end; ++t)
+            if (get_bit(bitboards[t], target_square)) { found = t; break; }
+        st.captured = found;
+        st.cap_sq   = target_square;
+    } else {
+        st.captured = -1;
+        st.cap_sq   = no_sq;
+    }
+
     // Move piece
     pop_bit(bitboards[piece], source_square);
     set_bit(bitboards[piece], target_square);
 
     // Captures
-    if (capture) {
-        int start_piece = (side == white) ? p : P;
-        int end_piece   = (side == white) ? k : K;
-        for (int bbp = start_piece; bbp <= end_piece; ++bbp) {
-            if (get_bit(bitboards[bbp], target_square)) { pop_bit(bitboards[bbp], target_square); break; }
-        }
+    if (capture && !enpass) {
+        if (st.captured != -1) pop_bit(bitboards[st.captured], target_square);
     }
 
     // Promotion
@@ -246,9 +166,34 @@ int make_move(int move, int move_flag, Board& board) {
     castle &= castling_rights[target_square];
 
     // Rebuild occupancies
-    std::memset(occupancies, 0, sizeof(occupancies));
-    for (int bbp = P; bbp <= K; ++bbp) occupancies[white] |= bitboards[bbp];
-    for (int bbp = p; bbp <= k; ++bbp) occupancies[black] |= bitboards[bbp];
+    const int us   = side;          // mover before flip
+    const int them = us ^ 1;
+
+    const U64 fromBB = 1ULL << source_square;
+    const U64 toBB   = 1ULL << target_square;
+
+    // Move our piece: from -> to
+    occupancies[us] ^= (fromBB ^ toBB);
+
+    // Remove captured piece from opponent occupancy
+    if (st.captured != -1) {
+        occupancies[them] ^= (1ULL << st.cap_sq); // EP uses st.cap_sq
+    }
+
+    // Rook movement affects our occupancy on castles
+    if (castl) {
+        int rook_from, rook_to;
+        if (side == white) {
+            if (target_square == g1)      { rook_from = h1; rook_to = f1; }
+            else /* c1 */                 { rook_from = a1; rook_to = d1; }
+        } else {
+            if (target_square == g8)      { rook_from = h8; rook_to = f8; }
+            else /* c8 */                 { rook_from = a8; rook_to = d8; }
+        }
+        occupancies[us] ^= ((1ULL << rook_from) ^ (1ULL << rook_to));
+    }
+
+    // Recompute 'both'
     occupancies[both] = occupancies[white] | occupancies[black];
 
     // Side to move
@@ -259,7 +204,7 @@ int make_move(int move, int move_flag, Board& board) {
                                   : __builtin_ctzll(bitboards[K]);
 
     if (is_square_attacked(board, king_sq, side)) {
-        restore_board(copy, board);
+        restore_board(board, st, move);
         return 0;
     }
 
@@ -269,7 +214,6 @@ int make_move(int move, int move_flag, Board& board) {
 // -----------------------------
 // Generate pseudo-legal moves
 // -----------------------------
-
 
 // CHANGE TO STATE INFOOO AOSDOAOSD AS
 void generate_moves(MoveList& list, Board& board) {
