@@ -2,8 +2,6 @@
 #include "Common.hpp"
 
 namespace bbc {
-
-
 // ------------------
 // Table definitions
 // ------------------

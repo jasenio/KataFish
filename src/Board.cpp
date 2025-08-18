@@ -58,6 +58,9 @@ namespace bbc {
                     // set piece on corresponding bitboard
                     set_bit(this->bitboards[piece], square);
                     this->piece_at[square] = piece;
+
+                    if(piece==K) king_sq[white] = square;
+                    else if(piece==k) king_sq[black] = square;
                     
                     // increment pointer to FEN string
                     fen++;
@@ -316,6 +319,8 @@ namespace bbc {
         b.castle    = st.old_castle;
         b.enpassant = st.old_ep;
         b.ply       = st.old_ply;
+        b.king_sq[white]   = st.old_king_sq[white];
+        b.king_sq[black] = st.old_king_sq[black];
 
         // 5) Rebuild occupancies (since your make_move rebuilds them)
         const int moverSide   = moverIsWhite ? white : black;

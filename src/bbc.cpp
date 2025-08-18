@@ -24,26 +24,15 @@
 #include "Movegen.hpp"
 #include "Eval.hpp"
 #include "Perft.hpp"
+#include "TT.hpp"
 
 #include<iostream>
 #include<iomanip>
 using std::cout, std::endl;
 
-
 // system headers
 #include <iostream>
 #include <stdio.h>
-#include <string.h>
-#include <string>
-#include <unordered_map>
-
-
-// bit board data type
-#include <cstdint>
-
-
-// define bitboard data type
-// DEFINED IN BOARD
 
 // FEN dedug positions
 constexpr const char* empty_board =  "8/8/8/8/8/8/8/8 b - - ";
@@ -58,6 +47,8 @@ namespace bbc{
 
 // leaf nodes (number of positions reached during the test of the move generator at a given depth)
 long nodes;
+constexpr int MATE = 20000;
+constexpr int INF  = 30000;
 
 
 /**********************************\
@@ -69,118 +60,6 @@ long nodes;
  
  ==================================
 \**********************************/
-
-// use a struct to store a move and its utility
-struct move_utility {
-    int utility;
-    int move;
-};
-
-//***************************
-//    TRANSPOSITION TABLE 
-//**************************
-// zobrist hashing functions for transposition
-uint64_t random_pieces[768];
-uint64_t random_side;
-uint64_t random_castling[16];
-uint64_t random_file[8];
-
-void init_zobrist_table(){
-    for(int i = 0; i < 768; i++){
-        random_pieces[i] = get_random_U64_number();
-    }
-    random_side = get_random_U64_number();
-    for(int i = 0; i < 16; i++){
-        random_castling[i] = get_random_U64_number();
-    }
-    for(int i = 0; i < 8; i++){
-        random_file[i] = get_random_U64_number();
-    }
-}
-
-uint64_t compute_zobrist_hash(Board& board){
-    const auto& bitboards = board.bitboards;
-    const auto& side = board.side;
-    const auto& castle = board.castle;
-    const auto& enpassant = board.enpassant;
-
-    uint64_t hash = 0ULL;
-
-    // calc hash with all piece bitboards
-    for(int piece = P; piece <= k; piece++){
-        uint64_t bitboard = bitboards[piece];
-
-        // hash using xor of ALL piece positions
-        while(bitboard){
-            int square = __builtin_ctzll(bitboard);
-            int addTable = piece * 64;
-
-            hash ^= random_pieces[square + addTable];
-            pop_bit(bitboard, square);
-        }
-    }
-
-    // calc hash with side
-    hash = side? hash : hash ^ random_side;
-
-    // calc hash with castling
-    hash ^= random_castling[castle];
-
-    // calc hash with enpassant values
-    if(enpassant <= 23) hash ^= random_file[enpassant - 16]; // squares 16 - 23 (a-h)
-    else if (enpassant <= 47) hash ^= random_file[enpassant - 40]; // squares 40 - 47 (a-h)
- 
-    return hash;
-}
-
-// transposition 
-// table entry
-struct entry{
-    uint64_t hash;
-    int move;
-    int depth;
-    int utility;
-    int node_type;
-};
-
-enum {LOWER_BOUND, EXACT, UPPER_BOUND};
-
-const int TABLE_SIZE = 16 * 1024 * 1024; // hold around 64 million entries
-
-// init table
-entry transposition_table[TABLE_SIZE];
-
-long invalid_table_moves = 0;
-long table_moves = 0;
-long stored = 0;
-long probed = 0;
-
-// get an entry
-bool probe_entry(uint64_t hash, entry &entry, int depth){
-    int index = hash % TABLE_SIZE;
-
-    // only return if the table's stored hash is equivalent
-    if(transposition_table[index].hash != 0) probed++;
-    if(transposition_table[index].hash == hash){
-        invalid_table_moves++;
-        entry = transposition_table[index];
-        return true;
-    }
-
-    return false;
-}
-
-// store entry inputs into table
-void store_entry(uint64_t hash, int move, int depth, int utility, int node_type){
-    int index = hash % TABLE_SIZE;
-    stored++;
-    // replace the hash if it has greater depth than current entry
-    // ** MIGHT TRY AGING OR OTHER REPLACEMENT TECHNIQUES **
-    if(transposition_table[index].depth <= depth || (node_type == EXACT && transposition_table[index].node_type != EXACT)){
-        transposition_table[index] = {hash, move, depth, utility, node_type};
-    }
-    
-}
 
 //***************************/
 //    QUIESCENCE SEARCH
@@ -255,6 +134,50 @@ int minQS(int alpha, int beta, Board& board){
     return beta;
 }
 
+int qsearch(Board& board, int alpha, int beta) {
+    bool check = in_check_now(board);
+    // Stand-pat only if NOT in check
+    if (!check) {
+        int stand = eval(board);
+        if (stand >= beta) return stand;            // fail-high
+        if (stand > alpha) alpha = stand;           // raise alpha
+    } else {
+        // In check: no stand-pat; treat like one-ply extension of evasions
+        // (i.e., we must consider *all* legal moves, not just captures)
+    }
+
+    MoveList ml;
+    StateInfo st;
+
+    if (!check) {
+        generate_moves(ml, board, false);               // captures/promotions only
+    } else {
+        generate_moves(ml, board);                  // all legal moves (evasions)
+    }
+
+    bool any = false;
+    for (int i = 0; i < ml.count; ++i) {
+        int move = ml.moves[i];
+        
+        if (!make_move(move, /*only_captures ok for speed*/ all_moves, board, st))
+            continue;
+
+        any = true;
+        int score = -qsearch(board, -beta, -alpha);
+
+        restore_board(board, st, move);
+
+        if (score >= beta) return score;            // fail-high / cutoff
+        if (score > alpha) alpha = score;           // best so far
+    }
+
+    if(check && !any){ // checkmate = in check + no legal moves
+        return -MATE;
+    }
+
+    return alpha;
+}
+
 //***************************
 //  CAPTURES V NON-CAPTURES 
 //**************************/
@@ -301,7 +224,7 @@ void storeKillerMove(int move, int ply){
 //***************************
 //        SORT MOVES  STILL NEEDS OPTIMIZATION !!! ! ! ! !!
 //**************************/
-void sortMoves(MoveList& move_list, bool probed, int TT_move, const Board& board){
+void sortMoves(MoveList& move_list, bool probed, int TT_move, const Board& board, TranspositionTable& tt){
     const auto& ply = board.ply;
     const auto& bitboards = board.bitboards;
 
@@ -351,7 +274,7 @@ void sortMoves(MoveList& move_list, bool probed, int TT_move, const Board& board
         }
 
          
-        table_moves++;
+        tt.inc_used();
     }
     // sort captures moves
     int* capture_scores = new int[c_count];
@@ -428,16 +351,16 @@ void sortMoves(MoveList& move_list, bool probed, int TT_move, const Board& board
 //***************************
 //    ALPHA BETA SEARCH 
 //**************************
-bool null = true;
+bool null = false;
 long null_branches_pruned = 0;
 long null_branches_explored = 0;
 
 // forward min value to be used in mx
-move_utility min_value(int alpha, int beta, int depth, Board& board);
+move_utility min_value(int alpha, int beta, int depth, Board& board, TranspositionTable& tt);
 
 // find max-value
 // from AIMA, game is preserved in global array bitboards[] instead of an input, copy and takeback mimic this operation
-move_utility max_value(int alpha, int beta, int depth, Board& board){
+move_utility max_value(int alpha, int beta, int depth, Board& board, TranspositionTable& tt){
     auto& bitboards = board.bitboards;
     auto& side = board.side;
     auto& ply = board.ply;
@@ -452,28 +375,28 @@ move_utility max_value(int alpha, int beta, int depth, Board& board){
     }
 
     // probe transposition table for an entry
-    entry ent;
-    bool probed = probe_entry(compute_zobrist_hash(board), ent, depth);
+    TTEntry ent;
+    bool probed = tt.probe(get_hash(board), ent, depth);
     if(probed && ent.depth >= depth){
         // update alpha
-        if(ent.node_type == LOWER_BOUND && ent.utility > alpha){
-            alpha = ent.utility;
+        if(ent.node_type == LOWER_BOUND && ent.value > alpha){
+            alpha = ent.value;
         }       
 
         // update beta
-        else if(ent.node_type == UPPER_BOUND && ent.utility < beta){
-            beta = ent.utility;
+        else if(ent.node_type == UPPER_BOUND && ent.value < beta){
+            beta = ent.value;
         }
 
         // return the node if its exact
         else if(ent.node_type == EXACT){
             nodes++;
-            return {ent.utility, ent.move};
+            return {ent.value, ent.move};
         }
 
         // cut off
         if(alpha >= beta){
-            return {ent.utility, ent.move};
+            return {ent.value, ent.move};
         }
     }
 
@@ -493,7 +416,7 @@ move_utility max_value(int alpha, int beta, int depth, Board& board){
                         side^=1;
                         ply++;
                         null_branches_explored++;
-                        move_utility null_move = min_value(beta-1, beta, depth - 1 -2, board);
+                        move_utility null_move = min_value(beta-1, beta, depth - 1 -2, board, tt);
                         restore_copy(copy, board);
 
                         // fail high bc beta is still same
@@ -524,14 +447,12 @@ move_utility max_value(int alpha, int beta, int depth, Board& board){
     bool checkmate = true;
 
     // ** MOVE ORDERING ** //
-    sortMoves(move_list, probed, ent.move, board);
+    sortMoves(move_list, probed, ent.move, board, tt);
 
     // loop over generated moves
     for (int move_count = 0; move_count < move_list.count; move_count++)
     {   
         // preserve board state
-        Board copy;
-        copy_board(copy, board);
         int move = move_list.moves[move_count];
 
         // make move
@@ -541,8 +462,9 @@ move_utility max_value(int alpha, int beta, int depth, Board& board){
         
         checkmate = false;
 
-        move_utility pair = min_value(alpha, beta, depth-1, board);
-        
+        move_utility pair = max_value(-beta, -alpha, depth-1, board, tt);
+        pair.utility = -pair.utility; 
+
         // save the move pair if it has the greater utility than current best move
         if(pair.utility > current_utility){
             current_utility = pair.utility;
@@ -555,7 +477,7 @@ move_utility max_value(int alpha, int beta, int depth, Board& board){
         }
 
         // take back
-        restore_copy(copy, board);
+        restore_board(board, st, move);
 
         // beta cutoff
         if (current_utility >= beta) {
@@ -563,7 +485,7 @@ move_utility max_value(int alpha, int beta, int depth, Board& board){
             storeKillerMove(move, ply);
 
             // store move in transposition as lower bound
-            store_entry(compute_zobrist_hash(board), move, depth, current_utility, LOWER_BOUND);
+            tt.store(get_hash(board), move, depth, current_utility, LOWER_BOUND);
             nodes++;
 
             return {current_utility, current_move};
@@ -580,12 +502,12 @@ move_utility max_value(int alpha, int beta, int depth, Board& board){
         else return {-20000, 0};
     }
     // store move in transposition as exact
-    store_entry(compute_zobrist_hash(board), current_move, depth, current_utility, EXACT);
+    tt.store(get_hash(board), current_move, depth, current_utility, EXACT);
     nodes++;
     return {current_utility, current_move};
 }
 
-move_utility min_value(int alpha, int beta, int depth, Board& board){
+move_utility min_value(int alpha, int beta, int depth, Board& board, TranspositionTable& tt){
     auto& bitboards = board.bitboards;
     auto& side = board.side;
     auto& ply = board.ply;
@@ -601,28 +523,28 @@ move_utility min_value(int alpha, int beta, int depth, Board& board){
     }
     
     // probe transposition table for an entry
-    entry ent;
-    bool probed = probe_entry(compute_zobrist_hash(board), ent, depth);
+    TTEntry ent;
+    bool probed = tt.probe(get_hash(board), ent, depth);
     if(probed && ent.depth >= depth){
         // update alpha
-        if(ent.node_type == LOWER_BOUND && ent.utility > alpha){
-            alpha = ent.utility;
+        if(ent.node_type == LOWER_BOUND && ent.value > alpha){
+            alpha = ent.value;
         }       
 
         // update beta
-        else if(ent.node_type == UPPER_BOUND && ent.utility < beta){
-            beta = ent.utility;
+        else if(ent.node_type == UPPER_BOUND && ent.value < beta){
+            beta = ent.value;
         }
 
         // return the node if its exact
         else if(ent.node_type == EXACT){
             nodes++;
-            return {ent.utility, ent.move};
+            return {ent.value, ent.move};
         }
 
         // cutoff
         if(alpha >= beta){
-            return {ent.utility, ent.move};
+            return {ent.value, ent.move};
         }
     }
 
@@ -642,7 +564,7 @@ move_utility min_value(int alpha, int beta, int depth, Board& board){
                         side^=1;
                         ply++;
                         null_branches_explored++;
-                        move_utility null_move = max_value(alpha, alpha+1, depth - 1 -2, board);
+                        move_utility null_move = max_value(alpha, alpha+1, depth - 1 -2, board, tt);
                         restore_copy(copy, board);
 
                         // fail low bc alpha is still same
@@ -665,7 +587,7 @@ move_utility min_value(int alpha, int beta, int depth, Board& board){
     StateInfo st;
 
     // ** MOVE ORDERING ** //
-    sortMoves(move_list, probed, ent.move, board);
+    sortMoves(move_list, probed, ent.move, board, tt);
 
     // lost king is worst utility
     int current_utility = 20001;
@@ -677,9 +599,6 @@ move_utility min_value(int alpha, int beta, int depth, Board& board){
     for (int move_count = 0; move_count < move_list.count; move_count++)
     {   
         // preserve board state
-        Board copy;
-        copy_board(copy, board);
-        
         int move = move_list.moves[move_count];
         // make move
         if (!make_move(move, all_moves, board, st))
@@ -688,7 +607,7 @@ move_utility min_value(int alpha, int beta, int depth, Board& board){
 
         checkmate = false;
 
-        move_utility pair = max_value(alpha, beta, depth-1, board);
+        move_utility pair = max_value(alpha, beta, depth-1, board, tt);
         
         // save the move pair if it has the less utility than current best move
         if(pair.utility < current_utility){
@@ -702,7 +621,7 @@ move_utility min_value(int alpha, int beta, int depth, Board& board){
         }
 
         // take back
-        restore_copy(copy, board);
+        restore_board(board, st, move);
 
         // alpha cutoff
         if (current_utility <= alpha) {
@@ -710,7 +629,7 @@ move_utility min_value(int alpha, int beta, int depth, Board& board){
             storeKillerMove(move, ply);
 
             // store move in transposition as upper bound
-            store_entry(compute_zobrist_hash(board), current_move, depth, current_utility, UPPER_BOUND);
+            tt.store(get_hash(board), current_move, depth, current_utility, UPPER_BOUND);
             nodes++;
             return {current_utility, current_move};
         }       
@@ -726,16 +645,95 @@ move_utility min_value(int alpha, int beta, int depth, Board& board){
         else return {20000, 0};
     }
     // store move in transposition as exact
-    store_entry(compute_zobrist_hash(board), current_move, depth, current_utility, EXACT);
+    tt.store(get_hash(board), current_move, depth, current_utility, EXACT);
     nodes++;
     return {current_utility, current_move};
 }
 
+move_utility negamax(int alpha, int beta, int depth, Board& board, TranspositionTable& tt) {
+    nodes++; // count this node
+
+    // 1: Quiescence Search at terminal nodes
+    if (depth == 0) {
+        int s = qsearch(board, alpha, beta);   // qsearch must be negamax-compatible
+        return {s, 0};
+    }
+
+    int alpha0 = alpha;
+
+    // 2: TT probe
+    TTEntry ent;
+    if (tt.probe(get_hash(board), ent, depth) && ent.depth >= depth) {
+        if (ent.node_type == EXACT) {
+            return {ent.value, ent.move};
+        }
+        if (ent.node_type == LOWER_BOUND) alpha = std::max(alpha, ent.value);
+        else if (ent.node_type == UPPER_BOUND) beta = std::min(beta, ent.value);
+        if (alpha >= beta) {
+            return {ent.value, ent.move};
+        }
+    }
+
+    MoveList ml;
+    generate_moves(ml, board);
+
+    // 3: Sort better moves first
+    sortMoves(ml, /*hasTT*/true, ent.move, board, tt);
+
+    // 4: Try making every legal move
+    int bestScore = -INF;
+    int bestMove  = 0;
+    bool hasLegal = false;
+
+    StateInfo st;
+    for (int i = 0; i < ml.count; ++i) {
+        int move = ml.moves[i];
+
+        if (!make_move(move, all_moves, board, st)) continue;
+
+        hasLegal = true;
+
+        move_utility child = negamax(-beta, -alpha, depth - 1, board, tt);
+        int score = -child.utility;
+
+        restore_board(board, st, move);
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestMove  = move;
+
+            if (score > alpha) {
+                alpha = score;
+                if (alpha >= beta) {
+                    storeKillerMove(move, board.ply);
+                    tt.store(get_hash(board), move, depth, bestScore, LOWER_BOUND);
+                    return {bestScore, bestMove};
+                }
+            }
+        }
+    }
+
+    // 5: Check for checkmate
+    if (!hasLegal) {
+        bool check = in_check_now(board);
+        if (check)  return {-MATE, 0}; // or -MATE + ply for mate distance
+        return {0, 0};                  // stalemate
+    }
+
+    // 6: Update node type and store in tt
+    int t =
+        (bestScore <= alpha0) ? UPPER_BOUND :
+        (bestScore >= beta)   ? LOWER_BOUND :
+                               EXACT;
+
+    tt.store(get_hash(board), bestMove, depth, bestScore, t);
+    return {bestScore, bestMove};
+}
 // alpha beta search
-move_utility alpha_beta_search(int depth, Board& board){
+move_utility alpha_beta_search(int depth, Board& board, TranspositionTable& tt){
     long start = get_time_ms();
     nodes = 0;
-    move_utility pair  = max_value(-20000, 20000, depth, board);
+    move_utility pair  = max_value(-20000, 20000, depth, board, tt);
     printf("    Nodes: %ld\n", nodes);
     printf("    Time: %ld\n\n", get_time_ms() - start);
     printf("    Evaluation %d\n", pair.utility);
@@ -744,8 +742,7 @@ move_utility alpha_beta_search(int depth, Board& board){
 }
 
 // iterative deepening INCREMENTED AT .25 seconds
-move_utility iterative_deepening(int depth, int time, Board& board){
-    auto& side = board.side;
+move_utility iterative_deepening(int depth, int time, Board& board, TranspositionTable& tt){
     long start = get_time_ms();
     nodes = 0;
     int reached = 0;
@@ -757,7 +754,7 @@ move_utility iterative_deepening(int depth, int time, Board& board){
         }
 
         reached++;
-        pair = side == white ? max_value(-20000, 20000, i, board) : min_value(-20000, 20000, i, board) ;
+        pair = negamax(-INF, INF, i, board, tt);
     }
     printf("\n    Nodes: %ld | Depth Reached %d | Time: %ld\n", nodes, reached, get_time_ms() - start);
     printf("    Evaluation %d\n", pair.utility);
@@ -938,7 +935,7 @@ void parse_position(char *command, Board& board)
 */
 
 // parse UCI "go" command
-void parse_go(char *command, Board& board)
+void parse_go(char *command, Board& board, TranspositionTable& tt)
 {
     // init depth
     // int depth = 6;
@@ -953,7 +950,7 @@ void parse_go(char *command, Board& board)
     // }
     
     // search position with the given depth
-    move_utility pair = iterative_deepening(25, 30, board);
+    move_utility pair = iterative_deepening(25, 30, board, tt);
     printf("Recommend move: ");
     print_move(pair.move);
     printf("Evaluation: %d\n", pair.utility);
@@ -966,7 +963,7 @@ void parse_go(char *command, Board& board)
 */
 
 // main UCI loop
-void uci_loop(Board& board)
+void uci_loop(Board& board, TranspositionTable& tt)
 {
     auto& side = board.side;
 
@@ -1026,7 +1023,7 @@ void uci_loop(Board& board)
 		{   
             StateInfo st;
             if(side==white || side == black){
-                 move_utility pair = iterative_deepening(9, 4, board);
+                 move_utility pair = iterative_deepening(9, 4, board, tt);
                 if(!make_move(pair.move, all_moves, board, st)) side ^= 1;    
                     else{
                         std::string  move_str = " " + move_string(pair.move);
@@ -1090,7 +1087,7 @@ void uci_loop(Board& board)
         // parse UCI "go" command
         else if (strncmp(input, "go", 2) == 0)
             // call parse go function
-            parse_go(input, board);
+            parse_go(input, board, tt);
         
         // parse UCI "quit" command
         else if (strncmp(input, "quit", 4) == 0)
@@ -1162,8 +1159,10 @@ int engine_main(int argc, char* argv[])
     Board board;
     board.parse_fen(start_position);
     board.print_board();
+    TranspositionTable tt;
+    cout<<tt.getSize()<<endl;
 
-    uci_loop(board);
+    uci_loop(board, tt);
 
 
     return 0;

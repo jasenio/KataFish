@@ -17,6 +17,7 @@ namespace bbc {
         U64                     bitboards[12];
         U64                     occupancies[3];
         int                     piece_at[64];
+        int                     king_sq[2];
         int                     side;
         int                      enpassant;
         int                     castle;
@@ -34,6 +35,7 @@ namespace bbc {
         int old_ply;        // optional if you just --ply on undo
         int captured;       // piece enum or NO_PIECE
         int cap_sq;         // NO_SQ if none; EP uses the pawn’s square
+        int old_king_sq[2];
     };
 
     // print bitboard

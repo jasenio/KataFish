@@ -46,17 +46,11 @@ void print_attacked_squares(const Board& board, int side_) {
 
 
 // checkmate helpers
-inline bool in_check_now(const Board& board) {
-    const auto& side = board.side;
-    const auto& bitboards = board.bitboards;
-    int myKing = (side == white)
-        ? __builtin_ctzll(bitboards[K])
-        : __builtin_ctzll(bitboards[k]);
-    int opp = (side == white) ? black : white;
-    return is_square_attacked(board, myKing, opp);
+bool in_check_now(const Board& board) {
+    return is_square_attacked(board, board.king_sq[board.side], board.side^1);
 }
 
-inline bool has_legal_move(Board& board) {
+bool has_legal_move(Board& board) {
     MoveList list; 
     generate_moves(list, board);
     StateInfo st;
@@ -105,6 +99,8 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     st.old_castle = board.castle;
     st.old_ep     = board.enpassant;
     st.old_ply    = board.ply;
+    st.old_king_sq[white] = board.king_sq[white];
+    st.old_king_sq[black] = board.king_sq[black];
 
     if (enpass) {
         st.captured = (side == white)? p : P;
@@ -123,6 +119,9 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     set_bit(bitboards[piece], target_square);
     piece_at[source_square] = no_piece;
     piece_at[target_square] = piece;
+
+    if(piece==K) board.king_sq[white] = target_square;
+    else if(piece==k) board.king_sq[black] = target_square;
 
     // Captures
     if (capture && !enpass) {
@@ -199,8 +198,7 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     side ^= 1; ++ply;
 
     // Legality: own king may not be in check
-    int king_sq = (side == white) ? __builtin_ctzll(bitboards[k])
-                                  : __builtin_ctzll(bitboards[K]);
+    int king_sq = board.king_sq[side^1];
 
     if (is_square_attacked(board, king_sq, side)) {
         restore_board(board, st, move);
@@ -215,7 +213,8 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
 // -----------------------------
 
 // CHANGE TO STATE INFOOO AOSDOAOSD AS
-void generate_moves(MoveList& list, Board& board) {
+void generate_moves(MoveList& list, Board& board, bool quiet) {
+    // quiet -> promotions + captures
     list.count = 0;
     auto& bitboards = board.bitboards;
     auto& side = board.side;
@@ -238,12 +237,14 @@ void generate_moves(MoveList& list, Board& board) {
 
                     // quiet pushes
                     if (!(target_square < a8) && !get_bit(occupancies[both], target_square)) {
+                        // promotion
                         if (source_square >= a7 && source_square <= h7) {
                             add_move(list, encode_move(source_square, target_square, piece, Q, 0, 0, 0, 0));
                             add_move(list, encode_move(source_square, target_square, piece, R, 0, 0, 0, 0));
                             add_move(list, encode_move(source_square, target_square, piece, B, 0, 0, 0, 0));
                             add_move(list, encode_move(source_square, target_square, piece, N, 0, 0, 0, 0));
-                        } else {
+                        } 
+                        else if (quiet){
                             add_move(list, encode_move(source_square, target_square, piece, 0, 0, 0, 0, 0));
                             if ((source_square >= a2 && source_square <= h2) && !get_bit(occupancies[both], target_square - 8))
                                 add_move(list, encode_move(source_square, target_square - 8, piece, 0, 0, 1, 0, 0));
@@ -280,7 +281,7 @@ void generate_moves(MoveList& list, Board& board) {
 
             // White castling (handled while scanning K)
             if (piece == K) {
-                if (castle & wk) {
+                if ( castle & wk) {
                     if (!get_bit(occupancies[both], f1) && !get_bit(occupancies[both], g1)) {
                         if (!is_square_attacked(board, e1, black) && !is_square_attacked(board,f1, black))
                             add_move(list, encode_move(e1, g1, piece, 0, 0, 0, 0, 1));
@@ -302,12 +303,14 @@ void generate_moves(MoveList& list, Board& board) {
 
                     // quiet pushes
                     if (!(target_square > h1) && !get_bit(occupancies[both], target_square)) {
+                        // promotion
                         if (source_square >= a2 && source_square <= h2) {
                             add_move(list, encode_move(source_square, target_square, piece, q, 0, 0, 0, 0));
                             add_move(list, encode_move(source_square, target_square, piece, r, 0, 0, 0, 0));
                             add_move(list, encode_move(source_square, target_square, piece, b, 0, 0, 0, 0));
                             add_move(list, encode_move(source_square, target_square, piece, n, 0, 0, 0, 0));
-                        } else {
+                        } 
+                        else if(quiet){
                             add_move(list, encode_move(source_square, target_square, piece, 0, 0, 0, 0, 0));
                             if ((source_square >= a7 && source_square <= h7) && !get_bit(occupancies[both], target_square + 8))
                                 add_move(list, encode_move(source_square, target_square + 8, piece, 0, 0, 1, 0, 0));
@@ -366,10 +369,13 @@ void generate_moves(MoveList& list, Board& board) {
                 attacks = knight_attacks[source_square] & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
                 while (attacks) {
                     target_square = __builtin_ctzll(attacks);
-                    if (!get_bit((side == white ? occupancies[black] : occupancies[white]), target_square))
-                        add_move(list, encode_move(source_square, target_square, piece, 0, 0, 0, 0, 0));
-                    else
+                    bool isCap = get_bit((side == white ? occupancies[black] : occupancies[white]), target_square);
+                    if (isCap) {
                         add_move(list, encode_move(source_square, target_square, piece, 0, 1, 0, 0, 0));
+                    }
+                    else if(quiet){ 
+                        add_move(list, encode_move(source_square, target_square, piece, 0, 0, 0, 0, 0));
+                    }
                     pop_bit(attacks, target_square);
                 }
                 pop_bit(bitboard, source_square);
@@ -383,10 +389,13 @@ void generate_moves(MoveList& list, Board& board) {
                 attacks = get_bishop_attacks(source_square, occupancies[both]) & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
                 while (attacks) {
                     target_square = __builtin_ctzll(attacks);
-                    if (!get_bit((side == white ? occupancies[black] : occupancies[white]), target_square))
-                        add_move(list, encode_move(source_square, target_square, piece, 0, 0, 0, 0, 0));
-                    else
+                    bool isCap = get_bit((side == white ? occupancies[black] : occupancies[white]), target_square);
+                    if (isCap) {
                         add_move(list, encode_move(source_square, target_square, piece, 0, 1, 0, 0, 0));
+                    }
+                    else if(quiet){ 
+                        add_move(list, encode_move(source_square, target_square, piece, 0, 0, 0, 0, 0));
+                    }
                     pop_bit(attacks, target_square);
                 }
                 pop_bit(bitboard, source_square);
@@ -400,10 +409,13 @@ void generate_moves(MoveList& list, Board& board) {
                 attacks = get_rook_attacks(source_square, occupancies[both]) & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
                 while (attacks) {
                     target_square = __builtin_ctzll(attacks);
-                    if (!get_bit((side == white ? occupancies[black] : occupancies[white]), target_square))
-                        add_move(list, encode_move(source_square, target_square, piece, 0, 0, 0, 0, 0));
-                    else
+                    bool isCap = get_bit((side == white ? occupancies[black] : occupancies[white]), target_square);
+                    if (isCap) {
                         add_move(list, encode_move(source_square, target_square, piece, 0, 1, 0, 0, 0));
+                    }
+                    else if(quiet){ 
+                        add_move(list, encode_move(source_square, target_square, piece, 0, 0, 0, 0, 0));
+                    }
                     pop_bit(attacks, target_square);
                 }
                 pop_bit(bitboard, source_square);
@@ -417,10 +429,13 @@ void generate_moves(MoveList& list, Board& board) {
                 attacks = get_queen_attacks(source_square, occupancies[both]) & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
                 while (attacks) {
                     target_square = __builtin_ctzll(attacks);
-                    if (!get_bit((side == white ? occupancies[black] : occupancies[white]), target_square))
-                        add_move(list, encode_move(source_square, target_square, piece, 0, 0, 0, 0, 0));
-                    else
+                    bool isCap = get_bit((side == white ? occupancies[black] : occupancies[white]), target_square);
+                    if (isCap) {
                         add_move(list, encode_move(source_square, target_square, piece, 0, 1, 0, 0, 0));
+                    }
+                    else if(quiet){ 
+                        add_move(list, encode_move(source_square, target_square, piece, 0, 0, 0, 0, 0));
+                    }
                     pop_bit(attacks, target_square);
                 }
                 pop_bit(bitboard, source_square);
@@ -434,10 +449,13 @@ void generate_moves(MoveList& list, Board& board) {
                 attacks = king_attacks[source_square] & ((side == white) ? ~occupancies[white] : ~occupancies[black]);
                 while (attacks) {
                     target_square = __builtin_ctzll(attacks);
-                    if (!get_bit((side == white ? occupancies[black] : occupancies[white]), target_square))
-                        add_move(list, encode_move(source_square, target_square, piece, 0, 0, 0, 0, 0));
-                    else
+                    bool isCap = get_bit((side == white ? occupancies[black] : occupancies[white]), target_square);
+                    if (isCap) {
                         add_move(list, encode_move(source_square, target_square, piece, 0, 1, 0, 0, 0));
+                    }
+                    else if(quiet){ 
+                        add_move(list, encode_move(source_square, target_square, piece, 0, 0, 0, 0, 0));
+                    }
                     pop_bit(attacks, target_square);
                 }
                 pop_bit(bitboard, source_square);

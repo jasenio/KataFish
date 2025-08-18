@@ -41,7 +41,7 @@ bool in_check_now(const Board& b);
 bool has_legal_move(const Board & b);
 
 // Generate pseudo-legal moves for current global `side`
-void generate_moves(MoveList& list, Board& b);
+void generate_moves(MoveList& list, Board& b, bool quiet=true);
 
 // Make a move; if move_flag==all_moves, try any; if only_captures, reject non-captures.
 // Returns 1 if legal (applied), 0 if illegal (board restored).

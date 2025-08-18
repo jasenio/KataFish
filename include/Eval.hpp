@@ -104,4 +104,10 @@ inline constexpr int king_end_table[64] = {
  ************************************/
 int eval(const Board& board);
 
+// store value
+struct move_utility {
+    int utility;
+    int move;
+};
+
 }

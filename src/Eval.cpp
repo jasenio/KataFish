@@ -35,7 +35,7 @@ int eval(const Board& board){
     while (black_pawns) {
         countPieces[p]++;
         int pawn_square = __builtin_ctzll(black_pawns);
-        utility_table -= pawn_table[63 - pawn_square];
+        utility_table -= pawn_table[pawn_square ^ 56];
         pop_bit(black_pawns, pawn_square);
     }
 
@@ -50,7 +50,7 @@ int eval(const Board& board){
     while (black_knights) {
         countPieces[n]++;
         int knight_square = __builtin_ctzll(black_knights);
-        utility_table -= knight_table[63 - knight_square];
+        utility_table -= knight_table[knight_square ^ 56];
         pop_bit(black_knights, knight_square);
     }
 
@@ -65,7 +65,7 @@ int eval(const Board& board){
     while (black_bishops) {
         countPieces[b]++;
         int bishop_square = __builtin_ctzll(black_bishops);
-        utility_table -= bishop_table[63 - bishop_square];
+        utility_table -= bishop_table[bishop_square^56];
         pop_bit(black_bishops, bishop_square);
     }
 
@@ -80,7 +80,7 @@ int eval(const Board& board){
     while (black_rooks) {
         countPieces[r]++;
         int rook_square = __builtin_ctzll(black_rooks);
-        utility_table -= rook_table[63 - rook_square];
+        utility_table -= rook_table[ rook_square^56];
         pop_bit(black_rooks, rook_square);
     }
 
@@ -95,7 +95,7 @@ int eval(const Board& board){
     while (black_queens) {
         countPieces[q]++;
         int queen_square = __builtin_ctzll(black_queens);
-        utility_table -= queen_table[63 - queen_square];
+        utility_table -= queen_table[ queen_square^56];
         pop_bit(black_queens, queen_square);
     }
 
@@ -131,7 +131,8 @@ int eval(const Board& board){
 
     utility_material += 20000 * (countPieces[K] - countPieces[k]);
 
-    return utility_material + utility_table;
+    if(board.side==white) return utility_material + utility_table;
+    else return -utility_material-utility_table;
 }
 
 }
