@@ -199,6 +199,9 @@ namespace bbc {
         return (bitboard) ? __builtin_ctzll(bitboard) : -1;
     }
 
+    // Search variables
+    constexpr int MATE = 20000;
+    constexpr int INF  = 30000;
 
 
 } // namespace bbc
