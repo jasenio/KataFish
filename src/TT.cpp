@@ -36,6 +36,13 @@ void TranspositionTable::resize(size_t mb){
     size = num_entries;
 }
 
+// clear all entries
+void TranspositionTable::clear(){
+    for(int i = 0; i < size; i++){
+        table[i] = TTEntry();
+    }
+}
+
 // get an entry
 bool TranspositionTable::probe(U64 hash, TTEntry &out, int depth) {
     int index = hash % size;

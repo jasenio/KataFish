@@ -5,6 +5,7 @@
 #include "Eval.hpp"
 #include "TT.hpp"
 #include "MoveOrder.hpp"
+#include "Engine.hpp"
 
 
 /**********************************\
@@ -25,5 +26,5 @@ namespace bbc{
     move_utility negamax(int alpha, int beta, int depth, Board& board, TranspositionTable& tt, SearchContext& sc);
 
     // search in consecutive depths (1->2->...d)
-    move_utility iterative_deepening(int depth, int time, Board& board, TranspositionTable& tt, SearchContext& sc);
+    move_utility iterative_deepening(int depth, TimeContext& tc, Board& board, TranspositionTable& tt, SearchContext& sc);
 }

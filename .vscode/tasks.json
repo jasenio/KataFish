@@ -17,6 +17,26 @@
         "isDefault": true
       }
     },
+    {
+      "label": "Build (Windows Arena Static)",
+      "type": "shell",
+      "command": "x86_64-w64-mingw32-g++",
+      "args": [
+        "-std=c++17",
+        "-O3",
+        "-DNDEBUG",
+        "-Wall", "-Wextra", "-pedantic-errors",
+        "-static", "-static-libgcc", "-static-libstdc++",
+        "-I${workspaceFolder}/include",
+        "${workspaceFolder}/src/*.cpp",
+        "-o", "${workspaceFolder}/bin/myengine.exe"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$gcc"]
+    },
 
     {
       "label": "Run app",

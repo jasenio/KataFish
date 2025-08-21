@@ -4,19 +4,9 @@
 #include "Movegen.hpp"
 #include "Eval.hpp"
 #include "TT.hpp"
+#include "Engine.hpp"
 
 namespace bbc{
-    const int MAX_PLY = 256;
-    const int MAX_KILL_STORED = 2;
-
-    struct SearchContext{
-        U64 nodes = 0;
-        
-        int killerMoves[MAX_PLY][MAX_KILL_STORED] = {};
-
-        bool null_enabled = false;
-    };
-
     // MVV LVA table
     // Assign capture weights : PawnXQueen > QueenXPawn
     inline constexpr int MVV_LVA[12][12] = {

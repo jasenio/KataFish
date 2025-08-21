@@ -49,7 +49,8 @@ int qsearch(Board& board, int alpha, int beta){
 
 // from AIMA, game is preserved in global array bitboards[] instead of an input, copy and takeback mimic this operation
 move_utility negamax(int alpha, int beta, int depth, Board& board, TranspositionTable& tt, SearchContext& sc) {
-    sc.nodes++; // count this node
+    poll_time(sc); // increment node and check time
+    if(sc.stop) return {0, 0};
 
     // 1: Quiescence Search at terminal nodes
     if (depth == 0) {
@@ -130,26 +131,62 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
 }
 
 // iterative deepening INCREMENTED AT .25 seconds
-move_utility iterative_deepening(int depth, int time, Board& board, TranspositionTable& tt, SearchContext& sc){
-    long start = get_time_ms();
-    sc.nodes = 0;
+move_utility iterative_deepening(int depth, TimeContext& tc, Board& board, TranspositionTable& tt, SearchContext& sc){
     int reached = 0;
-    move_utility pair;
+    move_utility best;
+    U64 prev_time = 0;
     for(int i = 1; i <= depth; i++){
-        // printf("time");
-        if(get_time_ms() - start >= time * 250){
-            break;
+        U64 cur_time = get_time_ms();
+        move_utility cur_move = negamax(-INF, INF, i, board, tt, sc);
+        if(sc.stop) break; // terminated early, don't use this
+
+        U64 elapsed_time   = get_time_ms() - sc.start;     // since move start
+        uint64_t depth_time  = get_time_ms() - cur_time;  
+
+        best = cur_move;
+        reached++;
+
+        if(DEBUG) printf("%ld\n", get_time_ms()-sc.start); // print time taken for each depth
+
+        // 1) Terminate on soft time
+        if(elapsed_time >= sc.soft) break; 
+
+        // 2) Estimate next time : Growth = num/den
+        U64 factor_num = 1;
+        U64 factor_den = 1;
+        if(prev_time==0){
+            factor_num = 2;
+        }
+        else{
+            factor_num = depth_time; factor_den = prev_time;
+
+            // make sure within bounds 
+            if(factor_num * 2 < factor_den * 3){ // n/d < 1.5
+                factor_num = 3; factor_den = 2;
+            }
+            else if(factor_num * 2 > factor_den * 8){ // n/d > 4.0
+                factor_num = 8; factor_den = 2;
+            }
         }
 
-        reached++;
-        pair = negamax(-INF, INF, i, board, tt, sc);
+        // 3) Cut off based off next expected time
+        U64 predicted_time = factor_num * depth_time / factor_den;
+        U64 remaining_time = sc.soft-elapsed_time;
+
+        if(predicted_time > remaining_time) break;
+
+        prev_time = depth_time;
+    } 
+    
+    if(DEBUG){ // debugging statements
+        printf("\n    Nodes: %ld | Depth Reached %d | Time: %ld\n", sc.nodes, reached, get_time_ms() - sc.start);
+        printf("    Evaluation %d\n", best.utility);
+        printf("    ");
+        print_move(best.move);
+        printf("\n");
     }
-    printf("\n    Nodes: %ld | Depth Reached %d | Time: %ld\n", sc.nodes, reached, get_time_ms() - start);
-    printf("    Evaluation %d\n", pair.utility);
-    printf("    ");
-    print_move(pair.move);
-    printf("\n");
-    return pair;
+
+    return best;
 }
 
 }

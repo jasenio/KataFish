@@ -25,6 +25,8 @@ public:
 
     void resize(size_t mb);
 
+    void clear();
+
     bool probe(U64 key, TTEntry& out, int depth);
     void store(U64 key, int move, int depth, int utility, int node_type);
     void inc_used();

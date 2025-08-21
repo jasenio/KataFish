@@ -8,6 +8,7 @@
 #else
     # include <sys/time.h>
 #endif
+#include <chrono>
 
 namespace bbc {
 
@@ -119,15 +120,11 @@ namespace bbc {
     inline constexpr void pop_bit(U64& bb, int sq) noexcept { bb &= ~(1ULL << sq); }
 
     // get time in milliseconds
-    inline int get_time_ms()
-    {
-        #ifdef WIN64
-            return GetTickCount();
-        #else
-            struct timeval time_value;
-            gettimeofday(&time_value, NULL);
-            return time_value.tv_sec * 1000 + time_value.tv_usec / 1000;
-        #endif
+    inline U64 get_time_ms() {
+        using namespace std::chrono;
+        return duration_cast<milliseconds>(
+            steady_clock::now().time_since_epoch()
+        ).count();
     }
 
     
