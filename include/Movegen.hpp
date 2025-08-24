@@ -48,6 +48,11 @@ void generate_moves(MoveList& list, Board& b, bool quiet=true);
 int make_move(int move, int move_flag, Board& b, StateInfo& st);
 
 
+// Null moves
+void make_null_move(Board& board, StateInfo& st);
+
+void restore_null(Board& board, StateInfo& st);
+
 } // namespace bbc
 
 

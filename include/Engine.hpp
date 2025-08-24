@@ -2,15 +2,15 @@
 # include "Common.hpp"
 
 namespace bbc{
-    const int MAX_PLY = 256;
+    const int MAX_PLY = 512;
     const int MAX_KILL_STORED = 2;
-    const bool DEBUG = false;
+    const bool DEBUG = true;
     struct SearchContext{
         U64 nodes = 0;
         
         int killerMoves[MAX_PLY][MAX_KILL_STORED] = {};
 
-        bool null_enabled = false;
+        bool null_enabled = true;
 
         // time management
         bool one_move = false;

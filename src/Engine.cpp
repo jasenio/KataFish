@@ -11,7 +11,7 @@ void SearchContext::clear(){
         }
     }
 
-    this->null_enabled = false;
+    this->null_enabled = true;
 
     this->one_move = false;
     this->stop = false;

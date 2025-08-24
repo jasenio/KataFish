@@ -16,6 +16,8 @@ void add_move(MoveList& list, int move) {
 // Printing helpers
 // -----------------------------
 void print_move(int move) {
+    int promoted = get_move_promoted(move);
+    if(promoted==p)
     std::printf("%s%s%c\n", square_to_coordinates[get_move_source(move)],
                         square_to_coordinates[get_move_target(move)],
                         promoted_pieces[get_move_promoted(move)]);

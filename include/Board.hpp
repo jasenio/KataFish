@@ -19,7 +19,7 @@ namespace bbc {
         int                     piece_at[64];
         int                     king_sq[2];
         int                     side;
-        int                      enpassant;
+        int                     enpassant;
         int                     castle;
         int                     ply;
 

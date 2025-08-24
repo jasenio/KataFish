@@ -20,7 +20,7 @@
 
 namespace bbc{
     // q search at terminal depths (d=0)
-    int qsearch(Board& board, int alpha, int beta);
+    int qsearch(int alpha, int beta, Board& board, TranspositionTable& tt, SearchContext& sc);
 
     // search at given depth (d)
     move_utility negamax(int alpha, int beta, int depth, Board& board, TranspositionTable& tt, SearchContext& sc);

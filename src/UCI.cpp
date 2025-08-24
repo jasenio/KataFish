@@ -114,6 +114,7 @@ void parse_go(char* command, Board& board, TimeContext& tc,
               TranspositionTable& tt, SearchContext& sc){
     // inside parse_go(...)
     tc.clear();
+    sc.clear();
 
     int depth    = -1;
     int movetime = -1;
@@ -171,8 +172,8 @@ void parse_go(char* command, Board& board, TimeContext& tc,
 
     // depth precedence stays the same
     int searchDepth = (depth > 0 ? depth : 99);
-    if(DEBUG) std::cout << sc.soft << " " << sc.hard << " " << sc.start<<endl; // write time allocations
 
+    board.ply = 0; // reset ply at every move
     move_utility best = iterative_deepening(searchDepth, tc, board, tt, sc);
 
     // Always output something valid

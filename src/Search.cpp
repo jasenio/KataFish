@@ -3,7 +3,7 @@
 namespace bbc{
 
 // q search at d=0
-int qsearch(Board& board, int alpha, int beta){
+int qsearch(int alpha, int beta, Board& board, TranspositionTable& tt, SearchContext& sc){
     bool check = in_check_now(board);
     // Stand-pat only if NOT in check
     if (!check) {
@@ -24,6 +24,9 @@ int qsearch(Board& board, int alpha, int beta){
         generate_moves(ml, board);                  // all legal moves (evasions)
     }
 
+    // sort moves
+    sort_moves(ml, 0, board, tt, sc);
+
     bool any = false;
     for (int i = 0; i < ml.count; ++i) {
         int move = ml.moves[i];
@@ -32,7 +35,7 @@ int qsearch(Board& board, int alpha, int beta){
             continue;
 
         any = true;
-        int score = -qsearch(board, -beta, -alpha);
+        int score = -qsearch(-beta, -alpha, board, tt, sc);
 
         restore_board(board, st, move);
 
@@ -54,7 +57,7 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
 
     // 1: Quiescence Search at terminal nodes
     if (depth == 0) {
-        int s = qsearch(board, alpha, beta);   // qsearch must be negamax-compatible
+        int s = qsearch(alpha, beta, board, tt, sc);   // qsearch must be negamax-compatible
         return {s, 0};
     }
 
@@ -71,6 +74,32 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
         else if (ent.node_type == UPPER_BOUND) beta = std::min(beta, ent.value);
         if (alpha >= beta) {
             return {ent.value, ent.move};
+        }
+    }
+
+    // 3: Null move
+    if(sc.null_enabled && alpha != beta -1){ // not a null branch
+        if(depth >= 3 && board.ply >= 1){ // sufficient depth
+            int check = in_check_now(board);
+            if(!check){ // not in check
+                U64 pieces = board.bitboards[Q] | board.bitboards[R] | board.bitboards[B] | board.bitboards[N] |
+                             board.bitboards[q] | board.bitboards[r] | board.bitboards[b] | board.bitboards[n];
+                if(pieces){ // pieces present
+                    int static_eval = eval(board);
+                    if(static_eval>=beta){ // sufficient strength to continue
+                        StateInfo st;
+                        make_null_move(board, st);
+                        int R = 2 + depth/6;
+                        move_utility score = negamax(-beta, -beta+1, depth-1-R, board, tt, sc);
+                        restore_null(board, st);
+
+                        if(-score.utility >= beta){ //success
+                            return {beta, 0};
+                        }
+                    }
+                    
+                }
+            }
         }
     }
 
@@ -94,6 +123,8 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
         hasLegal = true;
 
         move_utility child = negamax(-beta, -alpha, depth - 1, board, tt, sc);
+        if(sc.stop) return {0, 0}; // terminate on time
+
         int score = -child.utility;
 
         restore_board(board, st, move);
@@ -137,6 +168,7 @@ move_utility iterative_deepening(int depth, TimeContext& tc, Board& board, Trans
     U64 prev_time = 0;
     for(int i = 1; i <= depth; i++){
         U64 cur_time = get_time_ms();
+
         move_utility cur_move = negamax(-INF, INF, i, board, tt, sc);
         if(sc.stop) break; // terminated early, don't use this
 
@@ -146,7 +178,7 @@ move_utility iterative_deepening(int depth, TimeContext& tc, Board& board, Trans
         best = cur_move;
         reached++;
 
-        if(DEBUG) printf("%ld\n", get_time_ms()-sc.start); // print time taken for each depth
+        if(DEBUG) printf("Nodes: %lld Time: %lld\n", sc.nodes, get_time_ms()-sc.start); // print time taken for each depth
 
         // 1) Terminate on soft time
         if(elapsed_time >= sc.soft) break; 

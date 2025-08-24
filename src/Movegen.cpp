@@ -64,6 +64,16 @@ bool has_legal_move(Board& board) {
     }
     return false;
 }
+// Null moves
+void make_null_move(Board& board, StateInfo& st){
+    st.old_ep = board.enpassant;
+    board.enpassant = no_sq;
+    board.side^= 1;
+}
+void restore_null(Board& board, StateInfo& st){
+    board.side^=1;
+    board.enpassant = st.old_ep;
+}
 
 // -----------------------------
 // Make move (with legality filter)

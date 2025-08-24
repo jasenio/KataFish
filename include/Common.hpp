@@ -56,7 +56,7 @@ namespace bbc {
         return char_pieces[static_cast<unsigned char>(c)];
     }
 
-    inline constexpr std::string_view promoted_pieces = "pnbrqkpnbrqk";
+    inline constexpr std::string_view promoted_pieces = " nbrqk nbrqk";
 
     // board squares
     enum {
