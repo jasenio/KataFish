@@ -106,10 +106,10 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
     MoveList ml;
     generate_moves(ml, board);
 
-    // 3: Sort better moves first
+    // 4: Sort better moves first
     sort_moves(ml, ent.move, board, tt, sc);
 
-    // 4: Try making every legal move
+    // 5: Try making every legal move
     int bestScore = -INF;
     int bestMove  = 0;
     bool hasLegal = false;
@@ -144,14 +144,14 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
         }
     }
 
-    // 5: Check for checkmate
+    // 6: Check for checkmate
     if (!hasLegal) {
         bool check = in_check_now(board);
         if (check)  return {-MATE, 0}; // or -MATE + ply for mate distance
         return {0, 0};                  // stalemate
     }
 
-    // 6: Update node type and store in tt
+    // 7: Update node type and store in tt
     int t =
         (bestScore <= alpha0) ? UPPER_BOUND :
         (bestScore >= beta)   ? LOWER_BOUND :
@@ -161,7 +161,7 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
     return {bestScore, bestMove};
 }
 
-// iterative deepening INCREMENTED AT .25 seconds
+// iterative deepening
 move_utility iterative_deepening(int depth, TimeContext& tc, Board& board, TranspositionTable& tt, SearchContext& sc){
     int reached = 0;
     move_utility best;

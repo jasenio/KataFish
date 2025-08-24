@@ -1,22 +1,3 @@
-/**********************************\
- ==================================
-           
-             Didactic
-       BITBOARD CHESS ENGINE     
-       
-                by
-                
-         Code Monkey King
-
-  **SEARCH AND EVALUATION ON LINES 2225**
-
-                by
-
-              jasenio
- 
- ==================================
-\**********************************/
-
 #include "Common.hpp"
 #include "Board.hpp"
 #include "Attacks.hpp"
@@ -72,13 +53,11 @@ int engine_main(int argc, char* argv[])
     Board board;
     board.parse_fen(start_position);
     board.print_board();
+
+    // Engine Context
     TranspositionTable tt;
     SearchContext sc;
     TimeContext tc;
-
-    // allocate 3 minutes + 3 seconds
-    tc.ms_left = 3 * 60 * 1000;
-    tc.ms_inc = 3 * 1000;
 
     // call uci
     uci_loop(board, tc, tt, sc);
