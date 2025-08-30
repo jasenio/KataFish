@@ -40,6 +40,7 @@ inline U64 perft_driver(Board& board, int depth)
         
         // take back
         restore_board(board, st, move_list.moves[move_count]);
+
     }
     return nodes;
 }

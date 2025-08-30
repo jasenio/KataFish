@@ -65,7 +65,7 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
 
     // 2: TT probe
     TTEntry ent;
-    bool probed = tt.probe(get_hash(board), ent, depth);
+    bool probed = tt.probe(board.hash, ent, depth);
     if (probed && ent.depth >= depth) {
         if (ent.node_type == EXACT) {
             return {ent.value, ent.move};
@@ -137,7 +137,7 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
                 alpha = score;
                 if (alpha >= beta) {
                     storeKillerMove(move, board.ply, sc);
-                    tt.store(get_hash(board), move, depth, bestScore, LOWER_BOUND);
+                    tt.store(board.hash, move, depth, bestScore, LOWER_BOUND);
                     return {bestScore, bestMove};
                 }
             }
@@ -147,7 +147,7 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
     // 6: Check for checkmate
     if (!hasLegal) {
         bool check = in_check_now(board);
-        if (check)  return {-MATE, 0}; // or -MATE + ply for mate distance
+        if (check)  return {-MATE+depth, 0}; // or -MATE + ply for mate distance
         return {0, 0};                  // stalemate
     }
 
@@ -157,7 +157,7 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
         (bestScore >= beta)   ? LOWER_BOUND :
                                EXACT;
 
-    tt.store(get_hash(board), bestMove, depth, bestScore, t);
+    tt.store(board.hash, bestMove, depth, bestScore, t);
     return {bestScore, bestMove};
 }
 

@@ -10,7 +10,8 @@ namespace bbc {
         side(white),
         enpassant(no_sq),
         castle(0),
-        ply(0)
+        ply(0),
+        hash(0)
     {}
     /* ---------- parseFEN ---------- */
     void Board::parse_fen(const char* fen)
@@ -159,6 +160,9 @@ namespace bbc {
         // init all occupancies
         this->occupancies[both] |= this->occupancies[white];
         this->occupancies[both] |= this->occupancies[black];
+
+        // set hash
+        calc_hash();
     }
 
     /* ---------- print ---------- */
@@ -221,40 +225,6 @@ namespace bbc {
 
     }
 
-    // doesn't use piece_at
-    void save_board(Board& b, StateInfo& st, const int move) {
-        int target_square   = get_move_target(move);
-        bool capture        = get_move_capture(move);
-        bool enpass         = get_move_enpassant(move);
-
-
-        // snapshot the old board fields
-        st.old_castle = b.castle;
-        st.old_ep     = b.enpassant;
-        st.old_ply    = b.ply;
-
-        // Fill capture info so undo knows what to put back
-        if (enpass) {
-            st.captured = (b.side == white) ? p : P;
-            st.cap_sq   = (b.side == white)
-                        ? (target_square+ 8)
-                        : (target_square- 8);
-        } else if (capture) {
-            // Find which piece sits on target (only opponent range)
-            const int start = (b.side == white) ? p : P;
-            const int end   = (b.side == white) ? k : K;
-            int found = -1;
-            for (int t = start; t <= end; ++t) {
-                if (get_bit(b.bitboards[t], target_square)) { found = t; break; }
-            }
-            st.captured = found;
-            st.cap_sq   = target_square;
-        } else {
-            st.captured = -1;
-            st.cap_sq   = no_sq;
-        }
-    }
-    
     void restore_board(Board& b, const StateInfo& st, const int move) {
         auto& bitboards   = b.bitboards;
         auto& occupancies = b.occupancies;
@@ -321,6 +291,7 @@ namespace bbc {
         b.ply       = st.old_ply;
         b.king_sq[white]   = st.old_king_sq[white];
         b.king_sq[black] = st.old_king_sq[black];
+        b.hash = st.old_hash;
 
         // 5) Rebuild occupancies (since your make_move rebuilds them)
         const int moverSide   = moverIsWhite ? white : black;
@@ -357,4 +328,79 @@ namespace bbc {
         b.side ^= 1;
     }
     
+    // get hash
+    void Board::calc_hash() {
+        this->hash = 0ULL;
+        const auto& bitboards = this->bitboards;
+        const auto& side = this->side;
+        const auto& castle = this->castle;
+        const auto& enpassant = this->enpassant;
+
+        // calc hash with all piece bitboards
+        for(int piece = P; piece <= k; piece++){
+            uint64_t bitboard = bitboards[piece];
+
+            // hash using xor of ALL piece positions
+            while(bitboard){
+                int square = __builtin_ctzll(bitboard);
+
+                xor_piece(piece, square);
+                pop_bit(bitboard, square);
+            }
+        }
+
+        // calc hash with side
+        this->hash = side==white? hash : hash ^ random_side;
+
+        // calc hash with castling (0, castle = no castling rights -> castling rights)
+        this->hash ^= random_castling[castle];
+
+        // calc hash with enpassant values
+        xor_ep(enpassant);
+    }
+
+    // ---- Edit helpers ----
+    void Board::place(int piece, int sq){
+        
+    }
+
+    void Board::remove(int piece, int sq){
+
+    }
+
+    // ---- Hash  helpers ----
+    void Board::xor_piece(int piece, int sq) {
+        this->hash ^= random_pieces[piece * 64 + sq];
+    }
+
+
+    void Board::xor_castling(int old_cr, int new_cr) {
+        if (old_cr != new_cr) this->hash ^= (random_castling[old_cr] ^ random_castling[new_cr]);
+    }
+
+    void Board::xor_ep(int ep) {
+        if (ep >= 16 && ep <= 23) this->hash ^= random_file[ep - 16];
+        else if (ep >= 40 && ep <= 47) this->hash ^= random_file[ep - 40];
+    }
+
+
+    // random pieces
+    U64 random_pieces[768];
+    U64 random_side;
+    U64 random_castling[16];
+    U64 random_file[8];
+
+    // init zobrist table
+    void init_zobrist_table(){
+        for(int i = 0; i < 768; i++){
+            random_pieces[i] = get_random_U64_number();
+        }
+        random_side = get_random_U64_number();
+        for(int i = 0; i < 16; i++){
+            random_castling[i] = get_random_U64_number();
+        }
+        for(int i = 0; i < 8; i++){
+            random_file[i] = get_random_U64_number();
+        }
+    }
 } // namespace bbc

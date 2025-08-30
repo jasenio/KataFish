@@ -67,12 +67,18 @@ bool has_legal_move(Board& board) {
 // Null moves
 void make_null_move(Board& board, StateInfo& st){
     st.old_ep = board.enpassant;
+    st.old_hash = board.hash;
+
+    if (board.enpassant != no_sq) board.xor_ep(board.enpassant);
     board.enpassant = no_sq;
+    
     board.side^= 1;
+    board.side ^= random_side;
 }
 void restore_null(Board& board, StateInfo& st){
     board.side^=1;
     board.enpassant = st.old_ep;
+    board.hash      = st.old_hash;
 }
 
 // -----------------------------
@@ -110,7 +116,8 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     st.old_ep     = board.enpassant;
     st.old_ply    = board.ply;
     st.old_king_sq[white] = board.king_sq[white];
-    st.old_king_sq[black] = board.king_sq[black];
+    st.old_king_sq[black] = board.king_sq[black];   
+    st.old_hash = board.hash;
 
     if (enpass) {
         st.captured = (side == white)? p : P;
@@ -123,48 +130,81 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
         st.captured = no_piece;
         st.cap_sq   = no_sq;
     }
+    // 0) clear enpassant hash
+    if(enpassant!=no_sq) board.xor_ep(enpassant);
+    enpassant = no_sq;
 
-    // Move piece
+    // 1) Move piece
     pop_bit(bitboards[piece], source_square);
     set_bit(bitboards[piece], target_square);
     piece_at[source_square] = no_piece;
     piece_at[target_square] = piece;
+    board.xor_piece(piece, source_square);
 
+    // update king_sq
     if(piece==K) board.king_sq[white] = target_square;
     else if(piece==k) board.king_sq[black] = target_square;
 
-    // Captures
-    if (capture && !enpass) {
-        if (st.captured != no_piece) pop_bit(bitboards[st.captured], target_square);
+    // 2) Captures/Enpassant
+    if (capture) {
+        // 2a) En-passant capture ***
+        if (enpass) {
+            if(side == white) {
+                pop_bit(bitboards[p], target_square + 8);
+                piece_at[target_square+8]=no_piece;
+                board.xor_piece(st.captured, st.cap_sq);
+            }
+            else{ 
+                pop_bit(bitboards[P], target_square - 8);
+                piece_at[target_square-8]=no_piece;
+                board.xor_piece(st.captured, st.cap_sq);
+            }
+        }
+        else if (st.captured != no_piece){
+            pop_bit(bitboards[st.captured], target_square);
+            board.xor_piece(st.captured, target_square);
+        } 
     }
 
-    // Promotion
+    // 3) Promotion
     if (promoted_piece) {
         pop_bit(bitboards[(side == white) ? P : p], target_square);
         set_bit(bitboards[promoted_piece], target_square);
         piece_at[target_square] = promoted_piece;
+        board.xor_piece(promoted_piece, target_square);
     }
+    else board.xor_piece(piece, target_square);
 
-    // En-passant capture
-    // may be wrong ???                                        C   H E CK ****
-    if (enpass) {
-        if(side == white) pop_bit(bitboards[p], target_square + 8), piece_at[target_square+8]=no_piece;
-        else pop_bit(bitboards[P], target_square - 8), piece_at[target_square-8]=no_piece;
-    }
-
-    // En-passant square
-    enpassant = no_sq;
+    // 4) Double pawn push
     if (double_push) {
         enpassant = (side == white) ? (target_square + 8) : (target_square - 8);
+        board.xor_ep(enpassant);
     }
+    else enpassant = no_sq;
 
-    // Castling rook move
+    // 5) Castles
     if (castl) {
         switch (target_square) {
-            case g1: pop_bit(bitboards[R], h1); set_bit(bitboards[R], f1); piece_at[h1]=no_piece; piece_at[f1] = R; break;
-            case c1: pop_bit(bitboards[R], a1); set_bit(bitboards[R], d1); piece_at[a1]=no_piece; piece_at[d1] = R; break;
-            case g8: pop_bit(bitboards[r], h8); set_bit(bitboards[r], f8); piece_at[h8]=no_piece; piece_at[f8] = r; break;
-            case c8: pop_bit(bitboards[r], a8); set_bit(bitboards[r], d8); piece_at[a8]=no_piece; piece_at[d8] = r; break;
+            case g1: 
+                pop_bit(bitboards[R], h1); board.xor_piece(R, h1);
+                set_bit(bitboards[R], f1); board.xor_piece(R, f1);
+                piece_at[h1]=no_piece; 
+                piece_at[f1] = R; break;
+            case c1: 
+                pop_bit(bitboards[R], a1); board.xor_piece(R, a1);
+                set_bit(bitboards[R], d1); board.xor_piece(R, d1);
+                piece_at[a1]=no_piece; 
+                piece_at[d1] = R; break;
+            case g8: 
+                pop_bit(bitboards[r], h8); board.xor_piece(r, h8);
+                set_bit(bitboards[r], f8); board.xor_piece(r, f8);
+                piece_at[h8]=no_piece; 
+                piece_at[f8] = r; break;
+            case c8:
+                pop_bit(bitboards[r], a8); board.xor_piece(r, a8);
+                set_bit(bitboards[r], d8); board.xor_piece(r, d8);
+                piece_at[a8]=no_piece; 
+                piece_at[d8] = r; break;
             default: break;
         }
     }
@@ -172,8 +212,9 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     // Update castling rights
     castle &= castling_rights[source_square];
     castle &= castling_rights[target_square];
+    board.xor_castling(st.old_castle, castle);
 
-    // Rebuild occupancies
+    // 6) Rebuild occupancies
     const int us   = side;          // mover before flip
     const int them = us ^ 1;
 
@@ -204,8 +245,9 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     // Recompute 'both'
     occupancies[both] = occupancies[white] | occupancies[black];
 
-    // Side to move
+    // 7) Side to move
     side ^= 1; ++ply;
+    board.hash ^= random_side;
 
     // Legality: own king may not be in check
     int king_sq = board.king_sq[side^1];

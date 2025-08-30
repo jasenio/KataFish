@@ -16,6 +16,7 @@ namespace bbc {
         // raw state
         U64                     bitboards[12];
         U64                     occupancies[3];
+        U64                     hash;
         int                     piece_at[64];
         int                     king_sq[2];
         int                     side;
@@ -25,8 +26,23 @@ namespace bbc {
 
         // formerly free functions → methods
         void parse_fen(const char *  fen);
-        void print_board() const;
 
+        // update functions
+        void place(int piece, int sq);
+
+        void remove(int piece, int sq);
+
+        // define hashing
+        void xor_piece(int piece, int sq);
+
+        void xor_castling(int old_cr, int new_cr);
+
+        void xor_ep(int ep);    
+
+        void calc_hash();
+        
+        // Outuput
+        void print_board() const;
     };
 
     struct StateInfo {
@@ -35,6 +51,7 @@ namespace bbc {
         int old_ply;        // optional if you just --ply on undo
         int captured;       // piece enum or NO_PIECE
         int cap_sq;         // NO_SQ if none; EP uses the pawn’s square
+        U64 old_hash;
         int old_king_sq[2];
     };
 
@@ -78,9 +95,19 @@ namespace bbc {
 
     inline void restore_copy( Board const& copy, Board& b)   {b = copy;}
 
-    void save_board(Board& b, StateInfo& st, const int move);
 
     void restore_board(Board& b, const StateInfo& st, const int move);
+
+
+    // define hashing
+    extern U64 random_pieces[768];
+    extern U64 random_side;
+    extern U64 random_castling[16];
+    extern U64 random_file[8];
+
+    // init random numbers
+    void init_zobrist_table();
+
 }  // namespace bbc
 
 // castling rights binary encoding

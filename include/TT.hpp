@@ -42,15 +42,7 @@ private:
     size_t used;
 };
 
-// define hashing
-extern U64 random_pieces[768];
-extern U64 random_side;
-extern U64 random_castling[16];
-extern U64 random_file[8];
 
-// init random numbers
-void init_zobrist_table();
 
-// get hash
-U64 get_hash(Board& board);
+
 }
