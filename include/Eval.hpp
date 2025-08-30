@@ -104,6 +104,15 @@ inline constexpr int king_end_table[64] = {
  ************************************/
 int eval(const Board& board);
 
+inline bool is_threefold(const Board& b) {
+    int count = 0;
+    // Step by 2 to only compare same side-to-move positions (optional if STM is in hash)
+    for (int i = b.rep_len - 1; i >= b.rep_start; i -= 2) {
+        if (b.rep_keys[i] == b.hash && ++count >= 2) return true; // two fold -> less compute
+    }
+    return false;
+}
+
 // store value
 struct move_utility {
     int utility;

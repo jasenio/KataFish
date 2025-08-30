@@ -11,7 +11,9 @@ namespace bbc {
         enpassant(no_sq),
         castle(0),
         ply(0),
-        hash(0)
+        hash(0),
+        rep_len(0),
+        rep_start(0)
     {}
     /* ---------- parseFEN ---------- */
     void Board::parse_fen(const char* fen)
@@ -163,6 +165,11 @@ namespace bbc {
 
         // set hash
         calc_hash();
+
+        // store position in game history
+        this->rep_len = 0;
+        this->rep_start = 1;
+        this->rep_keys[this->rep_len++] = this->hash;   
     }
 
     /* ---------- print ---------- */
@@ -292,6 +299,8 @@ namespace bbc {
         b.king_sq[white]   = st.old_king_sq[white];
         b.king_sq[black] = st.old_king_sq[black];
         b.hash = st.old_hash;
+        b.rep_len = st.old_rep_len;
+        b.rep_start = st.old_rep_start;
 
         // 5) Rebuild occupancies (since your make_move rebuilds them)
         const int moverSide   = moverIsWhite ? white : black;

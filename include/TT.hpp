@@ -31,6 +31,7 @@ public:
     void store(U64 key, int move, int depth, int utility, int node_type);
     void inc_used();
     inline size_t getSize() const {return size;}
+    ~TranspositionTable();
 
 private:
     TTEntry* table;

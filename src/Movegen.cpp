@@ -55,9 +55,9 @@ bool has_legal_move(Board& board) {
     generate_moves(list, board);
     StateInfo st;
     for (int i = 0; i < list.count; ++i) {
-        Board snap; copy_board(snap, board);
         if (make_move(list.moves[i], all_moves, board, st)) {
-            restore_copy(snap, board);
+            // Proper undo that restores rep_len/rep_start as well
+            restore_board(board, st, list.moves[i]);
             return true;
         }
         // if make_move failed it already restored
@@ -73,7 +73,7 @@ void make_null_move(Board& board, StateInfo& st){
     board.enpassant = no_sq;
     
     board.side^= 1;
-    board.side ^= random_side;
+    board.hash ^= random_side;
 }
 void restore_null(Board& board, StateInfo& st){
     board.side^=1;
@@ -117,7 +117,11 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     st.old_ply    = board.ply;
     st.old_king_sq[white] = board.king_sq[white];
     st.old_king_sq[black] = board.king_sq[black];   
+    // hash
     st.old_hash = board.hash;
+    // pos history
+    st.old_rep_len   = board.rep_len;
+    st.old_rep_start = board.rep_start;
 
     if (enpass) {
         st.captured = (side == white)? p : P;
@@ -248,6 +252,10 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     // 7) Side to move
     side ^= 1; ++ply;
     board.hash ^= random_side;
+
+    // 8) Board history
+    if(capture || piece==P || piece == p) board.rep_start = board.rep_len;
+    board.rep_keys[board.rep_len++] = board.hash;
 
     // Legality: own king may not be in check
     int king_sq = board.king_sq[side^1];

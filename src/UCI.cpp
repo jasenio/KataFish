@@ -179,7 +179,7 @@ void parse_go(char* command, Board& board, TimeContext& tc,
     // Always output something valid
     const std::string bm = move_string(best.move);
     printf("bestmove %s\n", bm.empty() ? "0000" : bm.c_str());
-
+    printf("%lld\n", board.rep_len);
 }
 
 /*

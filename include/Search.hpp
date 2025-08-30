@@ -19,6 +19,7 @@
 \**********************************/
 
 namespace bbc{
+
     // q search at terminal depths (d=0)
     int qsearch(int alpha, int beta, Board& board, TranspositionTable& tt, SearchContext& sc);
 

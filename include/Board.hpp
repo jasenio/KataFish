@@ -24,6 +24,10 @@ namespace bbc {
         int                     castle;
         int                     ply;
 
+        U64 rep_keys[1024];         // store previous positions
+        int      rep_len;       // number of stored keys
+        int      rep_start;     // index AFTER last irreversible move
+
         // formerly free functions → methods
         void parse_fen(const char *  fen);
 
@@ -51,8 +55,14 @@ namespace bbc {
         int old_ply;        // optional if you just --ply on undo
         int captured;       // piece enum or NO_PIECE
         int cap_sq;         // NO_SQ if none; EP uses the pawn’s square
-        U64 old_hash;
         int old_king_sq[2];
+
+        // hash
+        U64 old_hash;
+
+        // repetitions
+        int      old_rep_len;
+        int      old_rep_start;
     };
 
     // print bitboard

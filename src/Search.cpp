@@ -44,7 +44,7 @@ int qsearch(int alpha, int beta, Board& board, TranspositionTable& tt, SearchCon
     }
 
     if(check && !any){ // checkmate = in check + no legal moves
-        return -MATE;
+        return -MATE+board.ply;
     }
 
     return alpha;
@@ -54,6 +54,9 @@ int qsearch(int alpha, int beta, Board& board, TranspositionTable& tt, SearchCon
 move_utility negamax(int alpha, int beta, int depth, Board& board, TranspositionTable& tt, SearchContext& sc) {
     poll_time(sc); // increment node and check time
     if(sc.stop) return {0, 0};
+
+    // 0: Three fold rep
+    if(board.ply && is_threefold(board)) return {0, 0};
 
     // 1: Quiescence Search at terminal nodes
     if (depth == 0) {
@@ -123,7 +126,6 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
         hasLegal = true;
 
         move_utility child = negamax(-beta, -alpha, depth - 1, board, tt, sc);
-        if(sc.stop) return {0, 0}; // terminate on time
 
         int score = -child.utility;
 
@@ -147,7 +149,7 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
     // 6: Check for checkmate
     if (!hasLegal) {
         bool check = in_check_now(board);
-        if (check)  return {-MATE+depth, 0}; // or -MATE + ply for mate distance
+        if (check)  return {-MATE+board.ply, 0}; // or -MATE + ply for mate distance
         return {0, 0};                  // stalemate
     }
 

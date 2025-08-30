@@ -18,6 +18,11 @@ TranspositionTable::TranspositionTable(size_t mb){
     used = 0;
 }
 
+// destructor
+TranspositionTable::~TranspositionTable(){
+    delete[] table;
+}
+
 // resize
 void TranspositionTable::resize(size_t mb){
     size_t bytes = mb * 1024 * 1024;
@@ -38,7 +43,7 @@ void TranspositionTable::resize(size_t mb){
 
 // clear all entries
 void TranspositionTable::clear(){
-    for(int i = 0; i < size; i++){
+    for(size_t i = 0; i < size; i++){
         table[i] = TTEntry();
     }
 }
