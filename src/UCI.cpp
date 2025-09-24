@@ -18,7 +18,7 @@ int parse_move(char* move_string, Board& board)
     MoveList move_list;
     generate_moves(move_list, board);
 
-    // e2e4 → (file='e'→4) + (rank='2'→6*8); but we map as in user's existing code:
+    // e2e4 -> (file='e'->4) + (rank='2'->6*8); 
     int source_square = (move_string[0] - 'a') + (8 - (move_string[1] - '0')) * 8;
     int target_square = (move_string[2] - 'a') + (8 - (move_string[3] - '0')) * 8;
 
@@ -120,7 +120,7 @@ void parse_go(char* command, Board& board, TimeContext& tc,
     int movetime = -1;
     int wtime = -1, btime = -1, winc = 0, binc = 0;
 
-    // parse tokens (use your own helpers if you have them)
+    // 1) parse tokens
     if (const char* p = strstr(command, "depth"))     depth    = std::max(1, atoi(p + 5));
     if (const char* p = strstr(command, "movetime"))  movetime = std::max(1, atoi(p + 8));
     if (const char* p = strstr(command, "wtime"))     wtime    = std::max(0, atoi(p + 5));
@@ -128,7 +128,7 @@ void parse_go(char* command, Board& board, TimeContext& tc,
     if (const char* p = strstr(command, "winc"))      winc     = std::max(0, atoi(p + 4));
     if (const char* p = strstr(command, "binc"))      binc     = std::max(0, atoi(p + 4));
 
-    // Map UCI clocks → your TimeContext
+    // 2a) Update time context
     if (movetime > 0) {
         // Fixed per-move time
         tc.ms_left = movetime;
@@ -146,16 +146,16 @@ void parse_go(char* command, Board& board, TimeContext& tc,
 
     tc.start = get_time_ms();
 
-    // Now your existing policy can stay as-is:
+    // 2b) Update search context
     sc.nodes = 0;
     sc.start = tc.start;
     sc.stop = false;
 
-    // --- budgets ---
+    // 3) Calculate budgets
     if (movetime > 0) { // one move
         U64 soft = std::max<U64>(20, tc.ms_left - OVERHEAD - 5);
         U64 hard = std::min<U64>(tc.ms_left - OVERHEAD,
-                                soft + std::max<long>(30, soft/10));   // ✅ clamp
+                                soft + std::max<long>(30, soft/10));   //  clamp
         sc.soft = soft;
         sc.hard = hard;
     } else if (tc.ms_left > 0) { // time + increment
@@ -164,9 +164,9 @@ void parse_go(char* command, Board& board, TimeContext& tc,
         U64 budget = std::max<U64>(20, std::min<long>(base + inc, tc.ms_left / 2));
         U64 hardCap= std::max<U64>(budget, (4 * tc.ms_left) / 5 - OVERHEAD);
         sc.soft = budget;
-        sc.hard = std::max<U64>(20, hardCap);       // ✅ never negative
-    } else { //infinite move
-        sc.soft = __LONG_MAX__ / 4;                      // ✅ standard macro
+        sc.hard = std::max<U64>(20, hardCap);       //  never negative
+    } else { //infinite move -- still needs work****
+        sc.soft = __LONG_MAX__ / 4;                      //  standard macro
         sc.hard = __LONG_MAX__ / 4;
     }
 
@@ -223,8 +223,6 @@ void uci_loop(Board& board, TimeContext& tc,  TranspositionTable& tt, SearchCont
         if (starts_with(input, "uci")) {
             std::printf("id name JJK\n");
             std::printf("id author jasenio\n");
-            // Print options here if/when you support them, e.g.:
-            // std::printf("option name Hash type spin default 16 min 1 max 4096\n");
             std::printf("uciok\n");
         }
         else if (starts_with(input, "isready")) {
@@ -243,15 +241,14 @@ void uci_loop(Board& board, TimeContext& tc,  TranspositionTable& tt, SearchCont
             parse_go(input, board, tc, tt, sc);
         }
         else if (starts_with(input, "stop")) {
-            // Your search should poll `sc.stop` or the time budget and exit ASAP.
-            sc.stop = true;     // add a bool/atomic in SearchContext if not present
+            // still needs multithreading *****
+            sc.stop = true;    
         }
         else if (starts_with(input, "quit")) {
             break;
         }
         else if (starts_with(input, "setoption")) {
-            // Optional: ignore unknown options gracefully for now.
-            // You can later parse "name Hash value N" and call tt.resize_mb(N).
+            // still needs work ****
         }
         else if (starts_with(input, "perft")) {
             // Dev-only: keep noise off stdout so GUIs aren't confused

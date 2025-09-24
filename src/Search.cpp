@@ -60,7 +60,7 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
 
     // 1: Quiescence Search at terminal nodes
     if (depth == 0) {
-        int s = qsearch(alpha, beta, board, tt, sc);   // qsearch must be negamax-compatible
+        int s = qsearch(alpha, beta, board, tt, sc); 
         return {s, 0};
     }
 
