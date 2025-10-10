@@ -1,6 +1,6 @@
 
 #include <iostream>
-#include <cstring>          // if the old code used C-string ops
+#include <cstring>        
 #include "Common.hpp"
 #include "Board.hpp"
 
@@ -15,20 +15,10 @@ namespace bbc {
         rep_len(0),
         rep_start(0)
     {}
+    
     /* ---------- parseFEN ---------- */
     void Board::parse_fen(const char* fen)
     {
-            /*  👉  Paste the body of your old  parse_fen(const char*)  here.
-            For every former global, switch to a member:
-
-                bitboards[i]   →  this->bitboards[i]
-                side           →  this->side
-                enpassant      →  this->enpassant
-                castle         →  this->castle
-                occupancies[x] →  this->occupancies[x]
-
-            Nothing else changes.  Keep helper calls (set_bit, etc.) as-is.
-        */
         // reset board position (bitboards)
         std::memset(this->bitboards, 0ULL, sizeof(this->bitboards));
         

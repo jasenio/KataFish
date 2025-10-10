@@ -11,24 +11,29 @@
 
 namespace bbc {
 
+    // chess board representation
     struct Board {
         Board();
-        // raw state
+
+        // core bitboard info
         U64                     bitboards[12];
         U64                     occupancies[3];
         U64                     hash;
-        int                     piece_at[64];
-        int                     king_sq[2];
         int                     side;
         int                     enpassant;
         int                     castle;
         int                     ply;
 
-        U64 rep_keys[1024];         // store previous positions
-        int      rep_len;       // number of stored keys
-        int      rep_start;     // index AFTER last irreversible move
+        // info optimizations
+        int                     piece_at[64];
+        int                     king_sq[2];
 
-        // formerly free functions → methods
+        // store previous positions for repetition detection
+        U64 rep_keys[1024];     // store hashes
+        int      rep_len;       // number of stored keys
+        int      rep_start;     // index after last irreversible move
+
+        // init board with fen string
         void parse_fen(const char *  fen);
 
         // update functions
@@ -36,7 +41,7 @@ namespace bbc {
 
         void remove(int piece, int sq);
 
-        // define hashing
+        // rolling hash helpers
         void xor_piece(int piece, int sq);
 
         void xor_castling(int old_cr, int new_cr);
@@ -45,16 +50,17 @@ namespace bbc {
 
         void calc_hash();
         
-        // Outuput
+        // output
         void print_board() const;
     };
 
+    // info to restore position
     struct StateInfo {
         int old_castle;
         int old_ep;
-        int old_ply;        // optional if you just --ply on undo
-        int captured;       // piece enum or NO_PIECE
-        int cap_sq;         // NO_SQ if none; EP uses the pawn’s square
+        int old_ply;        
+        int captured;       // no_piece if not a capture
+        int cap_sq;         // no_sq if none not a capture; EP uses the pawn’s square
         int old_king_sq[2];
 
         // hash

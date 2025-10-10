@@ -14,13 +14,13 @@ namespace bbc {
 
     using U64 = std::uint64_t;
 
-    // encode pieces
+    // piece encodings
     enum { no_piece = -1, P, N, B, R, Q, K, p, n, b, r, q, k };
 
-    // bishop and rook
+    // bishop and rook encodings
     enum { rook, bishop };
 
-    // ASCII pieces (LEGACY DELTE ********* )
+    // ASCII pieces
     inline constexpr std::string_view ascii_pieces = "PNBRQKpnbrqk";
 
     // unicode pieces
@@ -111,10 +111,8 @@ namespace bbc {
     // ---------------------------------------------------------------
     // Lookup helpers that need those enums
     // ---------------------------------------------------------------
-    // MAKE CONST LATER !! !! **** 
 
     // no_sq, set_bit, get_bit, … remain here too
-
     inline constexpr void set_bit(U64& bb, int sq) noexcept { bb |= 1ULL << sq; }
     inline constexpr bool get_bit(U64 bb, int sq) noexcept { return (bb >> sq) & 1ULL; }
     inline constexpr void pop_bit(U64& bb, int sq) noexcept { bb &= ~(1ULL << sq); }
@@ -182,7 +180,7 @@ namespace bbc {
     ==================================
     \**********************************/
 
-    // count bits within a bitboard (Brian Kernighan's way)
+    // count bits (useful for counting pieces on bitboard)
     static inline int count_bits(U64 bitboard)
     {
         // use built in functions    
@@ -190,15 +188,14 @@ namespace bbc {
 
     }
 
-    // get least significant 1st bit index
+    // get least significant 1st bit index (useful for locating pieces on bitboard)
     static inline int get_ls1b_index(U64 bitboard)
     {
         return (bitboard) ? __builtin_ctzll(bitboard) : -1;
     }
 
-    // Search variables
+    // search constants
     constexpr int MATE = 20000;
     constexpr int INF  = 30000;
 
-
-} // namespace bbc
+} // end namespace bbc

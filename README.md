@@ -34,6 +34,7 @@ Approximate playing strength: ~**2000 ELO** (based on games vs Stockfish NNUE, t
 ### Evaluation
 - Material
 - Piece-square tables 
+- Threefold Repetition
 
 ### Other
 - UCI protocol support
@@ -48,7 +49,7 @@ Approximate playing strength: ~**2000 ELO** (based on games vs Stockfish NNUE, t
 - **Move.hpp** — Core move representation (target/source square, enpassant, castling, promotion, captures)
 - **MoveGen.hpp** — Generation of legal moves (generate moves, make moves, attacked squares)
 - **Perft.hpp** — Testing of raw move generation (perft driver, nodes per second)
-- **Eval.hpp** — Static evaluation (material balance, piece-square tables).
+- **Eval.hpp** — Static evaluation (material balance, piece-square tables, Threefold Repetition).
 - **Search.hpp** — Core search functions (negamax/alpha-beta, iterative deepening, quiescence, etc.)
 - **TT.hpp** — Transposition table memory for encountered moves (Zobrist hashing, probing).
 - **MoveOrder.hpp** — Move ordering inside negamax search (MVV/LVA, killer moves, move scoring, insertion and quick sort)

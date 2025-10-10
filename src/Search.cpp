@@ -31,7 +31,7 @@ int qsearch(int alpha, int beta, Board& board, TranspositionTable& tt, SearchCon
     for (int i = 0; i < ml.count; ++i) {
         int move = ml.moves[i];
         
-        if (!make_move(move, /*only_captures ok for speed*/ all_moves, board, st))
+        if (!make_move(move, all_moves, board, st))
             continue;
 
         any = true;

@@ -49,12 +49,12 @@ int engine_main(int argc, char* argv[])
     // init all
     init_all();
 
-    // Create engine variables {board, table, s_context}
+    // init engine variables {board, table, s_context}
     Board board;
     board.parse_fen(start_position);
     board.print_board();
 
-    // Engine Context
+    // engine context
     TranspositionTable tt;
     SearchContext sc;
     TimeContext tc;

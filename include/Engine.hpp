@@ -5,11 +5,15 @@ namespace bbc{
     const int MAX_PLY = 512;
     const int MAX_KILL_STORED = 2;
     const bool DEBUG = true;
+
+    // search context with miscellaneous info
     struct SearchContext{
         U64 nodes = 0;
         
+        // killer moves
         int killerMoves[MAX_PLY][MAX_KILL_STORED] = {};
 
+        // null pruning
         bool null_enabled = true;
 
         // time management
@@ -22,10 +26,9 @@ namespace bbc{
         void clear();
     };
 
-    
 
-    // time management
-    inline constexpr long OVERHEAD = 50; //30ms overhead
+    // time management/context
+    inline constexpr long OVERHEAD = 50; // 50ms overhead
 
     struct TimeContext{
         U64 ms_left;
@@ -40,9 +43,8 @@ namespace bbc{
         return get_time_ms() - sc.start >= sc.hard;
     }
 
-    // occasionaly check if we hit over the itme
+    // check if we hit over time every 1023 nodes
     inline void poll_time(SearchContext& sc){
-        // 0x3FFF = 16 000
         if (((++sc.nodes) & 1023) == 0 && time_over_hard(sc)) sc.stop = true;
     }
 }

@@ -7,7 +7,7 @@
 
 namespace bbc{
 
-// define table entries
+// table entry types
 enum {LOWER_BOUND, EXACT, UPPER_BOUND};
 
 struct TTEntry {
