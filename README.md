@@ -11,7 +11,7 @@ Raw Nodes per second: ~**45 million NPS**   (Will vary based on hardware)
 
 Search Nodes per second: ~**5 million NPS**
 
-Search depth  (2000 ms): ~**11 - 16**   (Will vary based on game stage)
+Search depth  (2000 ms): ~**11 - 16**   (Will vary based on position)
 
 Approximate playing strength: ~**2000 ELO** (based on games vs Stockfish NNUE, tscp181, MadChessEngine)
 
