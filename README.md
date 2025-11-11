@@ -62,5 +62,6 @@ Approximate playing strength: ~**2000 ELO** (based on games vs Stockfish NNUE, t
 
 * Chess Programming Wiki (Maksim Korzh), Stockfish (Open-source engine) for code ideas
 * CuteChess / Arena authors for testing GUIs
+* Artificial Intelligence: A Modern Approach (Peter Norvig)
 
 
