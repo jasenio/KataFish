@@ -58,6 +58,12 @@ Approximate playing strength: ~**2000 ELO** (based on games vs Stockfish NNUE, t
 
 ---
 
+## Future Work
+- **NNUE** — How will NNUE affect a light-medium weight engine?
+- **Openings Database** — Adding some database in the first k moves
+
+---
+
 ## Acknowledgements
 
 * Chess Programming Wiki (Maksim Korzh), Stockfish (Open-source engine) for code ideas
