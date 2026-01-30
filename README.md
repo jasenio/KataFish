@@ -60,7 +60,9 @@ Approximate playing strength: ~**2000 ELO** (based on games vs Stockfish NNUE, t
 
 ## Future Work
 - **NNUE** — How will NNUE affect a light-medium weight engine?
-- **Openings Database** — Adding some database in the first k moves
+### TO DO
+- Use some trained model (probably stockfish)
+- Implement said model in C++ 
 
 ---
 
