@@ -60,6 +60,8 @@ Approximate playing strength: ~**2000 ELO** (based on games vs Stockfish NNUE, t
 
 ## Future Work
 - **NNUE** — How will NNUE affect a light-medium weight engine?
+- Plot # of nodes searched
+- Plot elo difference
 ### TO DO
 - Use some trained model (probably stockfish)
 - Implement said model in C++ 
