@@ -185,7 +185,7 @@ move_utility iterative_deepening(int depth, TimeContext& tc, Board& board, Trans
         
         // info statements for cute chess
         U64 elapsed_nodes = sc.nodes -cur_nodes;
-        U64 nps = elapsed_time ? 0 : (elapsed_nodes * 1000) / elapsed_time;
+        U64 nps = elapsed_time ? (elapsed_nodes * 1000) / elapsed_time : 0;
 
         printf("info depth %d score cp %d nodes %llu nps %llu time %llu\n",
             depth,

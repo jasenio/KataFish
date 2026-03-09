@@ -15,6 +15,8 @@ make help
 make win-static
 ```
 
+Use "Build and Run (DEBUG)" to debug in terminal
+
 Outputs:
 - `bin/katafish.exe` (Windows static)
 

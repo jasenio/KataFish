@@ -204,7 +204,7 @@ void uci_loop(Board& board, TimeContext& tc,  TranspositionTable& tt, SearchCont
     // print engine info
     printf("commands: \n");
     printf("position startpos moves <start-move>\n");
-    printf("play\n");
+    printf("play (not supported yet)\n");
     printf("move <move>\n");
     printf("perft\n\n");
 
