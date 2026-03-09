@@ -65,7 +65,8 @@ Approximate playing strength: ~**2000 ELO** (based on games vs Stockfish NNUE, t
 ### TO DO
 - Use some trained model (probably stockfish)
 - Implement said model in C++ 
-
+- Make stop work with multithread :)
+- Make more analytics?
 ---
 
 ## Acknowledgements
