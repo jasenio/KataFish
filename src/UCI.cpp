@@ -1,5 +1,6 @@
 # include "UCI.hpp"
 # include "Perft.hpp"
+#include <thread>
 
 namespace bbc{
 // helpers
@@ -179,7 +180,7 @@ void parse_go(char* command, Board& board, TimeContext& tc,
     // Always output something valid
     const std::string bm = move_string(best.move);
     printf("bestmove %s\n", bm.empty() ? "0000" : bm.c_str());
-    printf("%lld\n", board.rep_len);
+    // printf("%lld\n", board.rep_len);
 }
 
 /*
@@ -206,6 +207,9 @@ void uci_loop(Board& board, TimeContext& tc,  TranspositionTable& tt, SearchCont
     printf("play\n");
     printf("move <move>\n");
     printf("perft\n\n");
+
+    // multithread for searching while performing other actions
+    std::thread search_thread;
     
     // main loop
     while (1)
@@ -238,13 +242,19 @@ void uci_loop(Board& board, TimeContext& tc,  TranspositionTable& tt, SearchCont
             parse_position(input, board);
         }
         else if (starts_with(input, "go")) {
-            parse_go(input, board, tc, tt, sc);
+            if (search_thread.joinable()) search_thread.join(); // clean up previous
+            search_thread = std::thread([&]() {
+                parse_go(input, board, tc, tt, sc);
+            });
         }
         else if (starts_with(input, "stop")) {
             // still needs multithreading *****
-            sc.stop = true;    
+            sc.stop = true;
+            if (search_thread.joinable()) search_thread.join();
         }
         else if (starts_with(input, "quit")) {
+            sc.stop = true;
+            if (search_thread.joinable()) search_thread.join();
             break;
         }
         else if (starts_with(input, "setoption")) {

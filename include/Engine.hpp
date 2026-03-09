@@ -4,7 +4,7 @@
 namespace bbc{
     const int MAX_PLY = 512;
     const int MAX_KILL_STORED = 2;
-    const bool DEBUG = true;
+    const bool DEBUG = false;
 
     // search context with miscellaneous info
     struct SearchContext{

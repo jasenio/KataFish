@@ -75,4 +75,3 @@ Approximate playing strength: ~**2000 ELO** (based on games vs Stockfish NNUE, t
 * CuteChess / Arena authors for testing GUIs
 * Artificial Intelligence: A Modern Approach (Peter Norvig)
 
-

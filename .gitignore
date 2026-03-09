@@ -1,0 +1,30 @@
+# CMake/Make build directories
+build*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# Generated makefiles (keep top-level wrapper Makefile tracked)
+build*/Makefile
+
+# Compile database / metadata
+compile_commands.json
+
+# Local editor settings
+.vscode/
+
+# Binaries and debug symbols
+bin/myapp
+bin/myapp_o3
+bin/myapp_native
+bin/myapp_ofast
+bin/myengine.exe
+*.exe
+*.out
+*.obj
+*.o
+*.a
+*.so
+*.dll
+*.dylib
+*.pdb

@@ -170,6 +170,7 @@ move_utility iterative_deepening(int depth, TimeContext& tc, Board& board, Trans
     U64 prev_time = 0;
     for(int i = 1; i <= depth; i++){
         U64 cur_time = get_time_ms();
+        U64 cur_nodes = sc.nodes;
 
         move_utility cur_move = negamax(-INF, INF, i, board, tt, sc);
         if(sc.stop) break; // terminated early, don't use this
@@ -181,6 +182,19 @@ move_utility iterative_deepening(int depth, TimeContext& tc, Board& board, Trans
         reached++;
 
         if(DEBUG) printf("Nodes: %lld Time: %lld\n", sc.nodes, get_time_ms()-sc.start); // print time taken for each depth
+        
+        // info statements for cute chess
+        U64 elapsed_nodes = sc.nodes -cur_nodes;
+        U64 nps = elapsed_time ? 0 : (elapsed_nodes * 1000) / elapsed_time;
+
+        printf("info depth %d score cp %d nodes %llu nps %llu time %llu\n",
+            depth,
+            best.utility,
+            (unsigned long long)sc.nodes,
+            nps,   // sc.nodes / elapsed_ms * 1000
+            elapsed_time
+        );
+
 
         // 1) Terminate on soft time
         if(elapsed_time >= sc.soft) break; 
@@ -211,6 +225,7 @@ move_utility iterative_deepening(int depth, TimeContext& tc, Board& board, Trans
 
         prev_time = depth_time;
     } 
+    
     
     if(DEBUG){ // debugging statements
         printf("\n    Nodes: %ld | Depth Reached %d | Time: %ld\n", sc.nodes, reached, get_time_ms() - sc.start);
