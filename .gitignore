@@ -1,5 +1,6 @@
 # CMake/Make build directories
 build*/
+build-win-static/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
@@ -14,12 +15,10 @@ compile_commands.json
 .vscode/
 
 # Binaries and debug symbols
-bin/myapp
-bin/myapp_o3
-bin/myapp_native
-bin/myapp_ofast
-bin/myengine.exe
+bin/*
+!bin/katafish.exe
 *.exe
+!bin/katafish.exe
 *.out
 *.obj
 *.o

@@ -30,7 +30,7 @@
       "-static", "-static-libgcc", "-static-libstdc++",
       "-I${workspaceFolder}/include",
       "${workspaceFolder}/src/*.cpp",
-      "-o", "${workspaceFolder}/bin/myengine.exe"
+      "-o", "${workspaceFolder}/bin/katafish.exe"
     ],
     "problemMatcher": ["$gcc"]
   },
@@ -48,11 +48,45 @@
         "-static", "-static-libgcc", "-static-libstdc++",
         "-I${workspaceFolder}/include",
         "${workspaceFolder}/src/*.cpp",
-        "-o", "${workspaceFolder}/bin/myengine.exe"
+        "-o", "${workspaceFolder}/bin/katafish.exe"
       ],
       "group": {
         "kind": "build",
         "isDefault": true
+      },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "CMake Configure (Windows Static)",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "-S", "${workspaceFolder}",
+        "-B", "${workspaceFolder}/build-win-static",
+        "-DCMAKE_SYSTEM_NAME=Windows",
+        "-DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++-posix"
+      ],
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "CMake Build (Windows Static)",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build", "${workspaceFolder}/build-win-static",
+        "-j"
+      ],
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "CMake Configure + Build (Windows Static)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "CMake Configure (Windows Static)",
+        "CMake Build (Windows Static)"
+      ],
+      "group": {
+        "kind": "build"
       },
       "problemMatcher": ["$gcc"]
     },

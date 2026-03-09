@@ -1,7 +1,22 @@
 # KataFish - UCI Chess Engine (C++17)
 
 ## About
-KataFish is a UCI chess engine written entirely in C++. This project is complete but is being updated as part of a long-term learning project. The engine is rated at roughly 2000 ELO based on games with known rated engines. If you want to learn more about chess programming, feel free to use this as a resource — there are many fundamental techniques used in this. If you simply want to run the engine, there is a **myengine.exe** file inside bin ready to use on chess-engine GUI platforms (Cute Chess, Arena, etc.) with UCI protocol.
+KataFish is a UCI chess engine written entirely in C++. This project is complete but is being updated as part of a long-term learning project. The engine is rated at roughly 2000 ELO based on games with known rated engines. If you want to learn more about chess programming, feel free to use this as a resource — there are many fundamental techniques used in this. If you simply want to run the engine, there is a **katafish.exe** file inside bin ready to use on chess-engine GUI platforms (Cute Chess, Arena, etc.) with UCI protocol.
+
+## Quick Start (Make)
+
+Requirements:
+- `g++` and `make` for Linux/macOS builds
+- `x86_64-w64-mingw32-g++-posix` for Windows cross-builds (`std::thread` support)
+
+Common commands:
+```bash
+make help
+make win-static
+```
+
+Outputs:
+- `bin/katafish.exe` (Windows static)
 
 ---
 
@@ -74,4 +89,3 @@ Approximate playing strength: ~**2000 ELO** (based on games vs Stockfish NNUE, t
 * Chess Programming Wiki (Maksim Korzh), Stockfish (Open-source engine) for code ideas
 * CuteChess / Arena authors for testing GUIs
 * Artificial Intelligence: A Modern Approach (Peter Norvig)
-
