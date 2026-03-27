@@ -209,7 +209,7 @@ void uci_loop(Board& board, TimeContext& tc,  TranspositionTable& tt, SearchCont
     printf("perft\n\n");
 
     // multithread for searching while performing other actions
-    std::thread search_thread;
+    // std::thread search_thread;
     
     // main loop
     while (1)
@@ -242,19 +242,20 @@ void uci_loop(Board& board, TimeContext& tc,  TranspositionTable& tt, SearchCont
             parse_position(input, board);
         }
         else if (starts_with(input, "go")) {
-            if (search_thread.joinable()) search_thread.join(); // clean up previous
-            search_thread = std::thread([&]() {
-                parse_go(input, board, tc, tt, sc);
-            });
+            parse_go(input, board, tc, tt, sc);
+            // if (search_thread.joinable()) search_thread.join(); // clean up previous
+            // search_thread = std::thread([&]() {
+            //     parse_go(input, board, tc, tt, sc);
+            // });
         }
         else if (starts_with(input, "stop")) {
             // still needs multithreading *****
             sc.stop = true;
-            if (search_thread.joinable()) search_thread.join();
+            // if (search_thread.joinable()) search_thread.join();
         }
         else if (starts_with(input, "quit")) {
             sc.stop = true;
-            if (search_thread.joinable()) search_thread.join();
+            //if (search_thread.joinable()) search_thread.join();
             break;
         }
         else if (starts_with(input, "setoption")) {
