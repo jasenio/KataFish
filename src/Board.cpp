@@ -13,7 +13,8 @@ namespace bbc {
         ply(0),
         hash(0),
         rep_len(0),
-        rep_start(0)
+        rep_start(0),
+        use_nnue(true)
     {}
     
     /* ---------- parseFEN ---------- */

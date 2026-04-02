@@ -29,9 +29,12 @@ namespace bbc {
         int                     king_sq[2];
 
         // store previous positions for repetition detection
-        U64 rep_keys[1024];     // store hashes
-        int      rep_len;       // number of stored keys
-        int      rep_start;     // index after last irreversible move
+        U64                     rep_keys[1024];     // store hashes
+        int                     rep_len;       // number of stored keys
+        int                     rep_start;     // index after last irreversible move
+        
+        // NNUE hybrid
+        bool                    use_nnue;
 
         // init board with fen string
         void parse_fen(const char *  fen);

@@ -3,6 +3,12 @@
 namespace bbc{
 
 int eval(const Board& board){
+    if(board.use_nnue){ // hybrid nnue
+        int score = nnue::evaluate(board);
+        if(score > 14000) board.use_nnue = false; // switch to hand crafted eval in endgame
+        return score;
+    }
+    
     const auto& bitboards = board.bitboards;
     // BASIC MATERIAL SCORE, not middle/endgame taken into account
     int countPieces[12] = {};

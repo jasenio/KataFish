@@ -201,12 +201,17 @@ void uci_loop(Board& board, TimeContext& tc,  TranspositionTable& tt, SearchCont
     char input[2000];
     std::string line = "moves: ";
     
-    // print engine info
-    printf("commands: \n");
-    printf("position startpos moves <start-move>\n");
-    printf("play (not supported yet)\n");
-    printf("move <move>\n");
-    printf("perft\n\n");
+    // Print a short terminal help banner for manual UCI use.
+    printf("KataFish terminal UCI commands:\n");
+    printf("uci\n");
+    printf("isready\n");
+    printf("ucinewgame\n");
+    printf("position startpos\n");
+    printf("position startpos moves e2e4 e7e5\n");
+    printf("go depth 6\n");
+    printf("go movetime 2000\n");
+    printf("perft\n");
+    printf("quit\n\n");
 
     // multithread for searching while performing other actions
     // std::thread search_thread;
