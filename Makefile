@@ -13,7 +13,7 @@ WIN_OUT := $(BIN_DIR)/katafish.exe
 
 COMMON_WARN := -Wall -Wextra -pedantic-errors
 
-.PHONY: help debug baseline release win-static win-static-debug win-static-opt run clean
+.PHONY: help debug baseline release win-static win-static-debug win-static-opt run run-debug clean
 
 help:
 	@echo "KataFish build targets"
@@ -24,7 +24,8 @@ help:
 	@echo "  make win-static      Build Windows static binary with MinGW POSIX ($(WIN_OUT))"
 	@echo "  make win-static-debug Build Windows static debug binary ($(WIN_OUT))"
 	@echo "  make win-static-opt  Build Windows static optimized binary ($(WIN_OUT))"
-	@echo "  make run             Run debug binary ($(DEBUG_OUT))"
+	@echo "  make run             Build and run Linux/macOS O3 binary ($(RELEASE_OUT))"
+	@echo "  make run-debug       Build and run Linux/macOS debug binary ($(DEBUG_OUT))"
 	@echo "  make clean           Remove build artifacts from $(BIN_DIR)"
 	@echo ""
 	@echo "Override compilers if needed:"
@@ -59,7 +60,10 @@ win-static-opt: $(BIN_DIR)
 	-static -static-libgcc -static-libstdc++ \
 	$(INC) $(SRC) -o $(WIN_OUT)
 
-run: debug
+run: release
+	./$(RELEASE_OUT)
+
+run-debug: debug
 	./$(DEBUG_OUT)
 
 clean:

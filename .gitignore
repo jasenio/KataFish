@@ -18,6 +18,7 @@ compile_commands.json
 bin/*
 !bin/katafish.exe
 *.exe
+.*
 !bin/katafish.exe
 *.out
 *.obj
