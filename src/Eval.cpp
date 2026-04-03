@@ -2,14 +2,22 @@
 
 namespace bbc{
 
-int eval( Board& board){ // eventually switch to const
-    if(board.use_nnue){ // hybrid nnue
-        int score = nnue::evaluate(board);
-        if(score > 1400) board.use_nnue = false; // switch to hand crafted eval in endgame
-        return score;
+int eval(const Board& board){ 
+    const auto& bitboards = board.bitboards;
+
+    if (board.use_nnue) { // hybrid evaluation: use NNUE during opening-mid game
+        int major_pieces = 0;
+
+        major_pieces += __builtin_popcountll(bitboards[N]) + __builtin_popcountll(bitboards[n]);
+        major_pieces += __builtin_popcountll(bitboards[B]) + __builtin_popcountll(bitboards[b]);
+        major_pieces += __builtin_popcountll(bitboards[R]) + __builtin_popcountll(bitboards[r]);
+        major_pieces += __builtin_popcountll(bitboards[Q]) + __builtin_popcountll(bitboards[q]);
+
+        if (major_pieces >= 5) {  // switch to classical evaluation in endgame when few pieces left
+            return nnue::evaluate(board);
+        }
     }
     
-    const auto& bitboards = board.bitboards;
     // BASIC MATERIAL SCORE, not middle/endgame taken into account
     int countPieces[12] = {};
 

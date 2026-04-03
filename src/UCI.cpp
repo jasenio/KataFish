@@ -135,10 +135,16 @@ void parse_go(const char* command, Board& board, TimeContext& tc,
         tc.ms_left = movetime;
         tc.ms_inc  = 0;
         sc.one_move = true;
-    } else if (wtime >= 0 && btime >= 0) {
-        // Use our own clock and increment depending on side to move
-        if (board.side == white) { tc.ms_left = wtime; tc.ms_inc = winc; }
-        else                      { tc.ms_left = btime; tc.ms_inc = binc; }
+    } else if (wtime >= 0 || btime >= 0) {
+        // Use our own clock and increment depending on side to move.
+        // Support wtime-only or btime-only calls from GUI protocol.
+        if (board.side == white) {
+            tc.ms_left = (wtime >= 0 ? wtime : btime);
+            tc.ms_inc  = (wtime >= 0 ? winc : binc);
+        } else {
+            tc.ms_left = (btime >= 0 ? btime : wtime);
+            tc.ms_inc  = (btime >= 0 ? binc : winc);
+        }
     } else {
         // Depth-only (no time control given)
         tc.ms_left = 0;
