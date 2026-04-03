@@ -111,7 +111,7 @@ void parse_position(char* command, Board& board)
 */
 
 // parse UCI "go" command
-void parse_go(char* command, Board& board, TimeContext& tc,
+void parse_go(const char* command, Board& board, TimeContext& tc,
               TranspositionTable& tt, SearchContext& sc){
     // inside parse_go(...)
     tc.clear();
@@ -214,8 +214,14 @@ void uci_loop(Board& board, TimeContext& tc,  TranspositionTable& tt, SearchCont
     printf("quit\n\n");
 
     // multithread for searching while performing other actions
-    // std::thread search_thread;
+    std::thread search_thread;
     
+    auto join_search = [&]() {
+        if (search_thread.joinable()) {
+            search_thread.join();
+        }
+    };
+
     // main loop
     while (1)
     {
@@ -238,35 +244,46 @@ void uci_loop(Board& board, TimeContext& tc,  TranspositionTable& tt, SearchCont
             std::printf("readyok\n");
         }
         else if (starts_with(input, "ucinewgame")) {
+            sc.stop.store(true, std::memory_order_relaxed); // stop ongoing search
+            join_search();
+
             parse_position(const_cast<char*>("position startpos"), board);
             tc.clear();
             tt.clear();
             sc.clear();         // ensure this resets any stop flag in your search
         }
         else if (starts_with(input, "position")) {
+            sc.stop.store(true, std::memory_order_relaxed); // stop ongoing search
+            join_search();
+
             parse_position(input, board);
         }
         else if (starts_with(input, "go")) {
-            parse_go(input, board, tc, tt, sc);
-            // if (search_thread.joinable()) search_thread.join(); // clean up previous
-            // search_thread = std::thread([&]() {
-            //     parse_go(input, board, tc, tt, sc);
-            // });
+            sc.stop.store(true, std::memory_order_relaxed); // stop ongoing search
+            join_search();
+
+            std::string go_cmd = input;
+            search_thread = std::thread([&, go_cmd]() {
+                parse_go(go_cmd.c_str(), board, tc, tt, sc);
+            });
         }
         else if (starts_with(input, "stop")) {
             // still needs multithreading *****
-            sc.stop = true;
-            // if (search_thread.joinable()) search_thread.join();
+            sc.stop.store(true, std::memory_order_relaxed);
+            join_search();
         }
         else if (starts_with(input, "quit")) {
-            sc.stop = true;
-            //if (search_thread.joinable()) search_thread.join();
+            sc.stop.store(true, std::memory_order_relaxed);
+            join_search();
             break;
         }
         else if (starts_with(input, "setoption")) {
             // still needs work ****
         }
         else if (starts_with(input, "perft")) {
+            sc.stop.store(true, std::memory_order_relaxed);
+            join_search();
+
             // Dev-only: keep noise off stdout so GUIs aren't confused
             int start = get_time_ms();
             U64 nodes = perft_driver(board, 6);

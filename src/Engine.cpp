@@ -14,7 +14,7 @@ void SearchContext::clear(){
     this->null_enabled = true;
 
     this->one_move = false;
-    this->stop = false;
+    this->stop.store(false, std::memory_order_relaxed);
     this->hard = 0;
     this->soft = 0;
     this->start = 0;

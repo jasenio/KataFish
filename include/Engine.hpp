@@ -1,5 +1,6 @@
 # pragma once
 # include "Common.hpp"
+# include <atomic>
 
 namespace bbc{
     const int MAX_PLY = 512;
@@ -18,7 +19,7 @@ namespace bbc{
 
         // time management
         bool one_move = false;
-        volatile bool stop = false;
+        std::atomic<bool> stop{false};
         U64 hard = 0;
         U64 soft = 0;
         U64 start = 0;
@@ -45,6 +46,6 @@ namespace bbc{
 
     // check if we hit over time every 1023 nodes
     inline void poll_time(SearchContext& sc){
-        if (((++sc.nodes) & 1023) == 0 && time_over_hard(sc)) sc.stop = true;
+        if (((++sc.nodes) & 1023) == 0 && time_over_hard(sc)) sc.stop.store(true, std::memory_order_relaxed);
     }
 }
