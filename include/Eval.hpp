@@ -103,7 +103,7 @@ inline constexpr int king_end_table[64] = {
  * 
  * 
  ************************************/
-int eval(const Board& board);
+int eval( Board& board);
 
 inline bool is_threefold(const Board& b) {
     int count = 0;

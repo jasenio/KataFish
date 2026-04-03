@@ -2,10 +2,10 @@
 
 namespace bbc{
 
-int eval(const Board& board){
+int eval( Board& board){ // eventually switch to const
     if(board.use_nnue){ // hybrid nnue
         int score = nnue::evaluate(board);
-        if(score > 14000) board.use_nnue = false; // switch to hand crafted eval in endgame
+        if(score > 1400) board.use_nnue = false; // switch to hand crafted eval in endgame
         return score;
     }
     
