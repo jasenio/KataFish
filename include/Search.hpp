@@ -5,6 +5,7 @@
 #include "Eval.hpp"
 #include "TT.hpp"
 #include "MoveOrder.hpp"
+#include "Position.hpp"
 #include "Engine.hpp"
 
 

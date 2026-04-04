@@ -79,6 +79,8 @@ Approximate playing strength: ~**2000 ELO** (based on games vs Stockfish NNUE, t
 - **NNUE** Swap from a BLACKBOX to EFFICIENTLY UPDATABLE (use accumulators so we don't load the entire network each time). NPS is ~1% currently
 ### TO DO
 - Multithreaded Search
+- Penalty for fifty move rule
+- Larger ply stack?
 ---
 
 ## Acknowledgements

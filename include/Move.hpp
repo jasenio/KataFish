@@ -54,5 +54,7 @@ void print_move_list(MoveList& list);
 bool ensure_same(int a[], int b[], int length = 256);
 void print_two_lists(int a[], int b[], int length = 256);
 
+// move types selector
+enum { all_moves, only_captures };
 
 }

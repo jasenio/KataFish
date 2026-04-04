@@ -1,6 +1,7 @@
 # pragma once
 #include "Board.hpp"
 #include "Movegen.hpp"
+#include "Position.hpp"
 
 namespace bbc{
 
@@ -39,7 +40,7 @@ inline U64 perft_driver(Board& board, int depth)
         nodes+=perft_driver(board, depth - 1);
         
         // take back
-        restore_board(board, st, move_list.moves[move_count]);
+        undo_move(board, st, move_list.moves[move_count]);
 
     }
     return nodes;

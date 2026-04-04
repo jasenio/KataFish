@@ -37,7 +37,7 @@ int qsearch(int alpha, int beta, Board& board, TranspositionTable& tt, SearchCon
         any = true;
         int score = -qsearch(-beta, -alpha, board, tt, sc);
 
-        restore_board(board, st, move);
+        undo_move(board, st, move);
 
         if (score >= beta) return score;            // fail-high / cutoff
         if (score > alpha) alpha = score;           // best so far
@@ -129,7 +129,7 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
 
         int score = -child.utility;
 
-        restore_board(board, st, move);
+        undo_move(board, st, move);
 
         if (score > bestScore) {
             bestScore = score;

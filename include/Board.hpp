@@ -114,10 +114,6 @@ namespace bbc {
 
     inline void restore_copy( Board const& copy, Board& b)   {b = copy;}
 
-
-    void restore_board(Board& b, const StateInfo& st, const int move);
-
-
     // define hashing
     extern U64 random_pieces[768];
     extern U64 random_side;
