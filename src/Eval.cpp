@@ -2,10 +2,12 @@
 
 namespace bbc{
 
-int eval(const Board& board){ 
+int eval(Board& board){ 
     const auto& bitboards = board.bitboards;
 
     if (board.use_nnue) { // hybrid evaluation: use NNUE during opening-mid game
+        return nnue::evaluate(board);
+
         int major_pieces = 0;
 
         major_pieces += __builtin_popcountll(bitboards[N]) + __builtin_popcountll(bitboards[n]);

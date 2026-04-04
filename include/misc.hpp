@@ -52,6 +52,6 @@ INLINE uint16_t readu_le_u16(const void *p)
 void decode_fen(const char* fen_str, int* player, int* castle,
        int* fifty, int* move_number, int* piece, int* square);
 
-#define clamp(a, b, c) ((a) < (b) ? (b) : (a) > (c) ? (c) : (a))
+#define NNUE_CLAMP(a, b, c) ((a) < (b) ? (b) : (a) > (c) ? (c) : (a))
 
 #endif

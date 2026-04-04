@@ -3,7 +3,7 @@
 #include "Board.hpp"   
 #include "Attacks.hpp"  
 #include "Move.hpp"
-
+#include "nnue.hpp"
 
 // responsible for making and taking back moves, with legality checks and efficient updates
 

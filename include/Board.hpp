@@ -10,6 +10,33 @@
 
 
 namespace bbc {
+    /*nnue data*/
+    typedef struct DirtyPiece {
+    int dirtyNum;
+    int pc[3];
+    int from[3];
+    int to[3];
+    } DirtyPiece;
+
+    typedef struct {
+    alignas(64) int16_t accumulation[2][256];
+    bool computedAccumulation;
+    } Accumulator;
+
+    /*position legacy*/
+    typedef struct Position {
+    int player;
+    int* pieces;
+    int* squares;
+    Accumulator accumulator;
+    } Position;
+
+    // add NNUE stack + state
+    struct NNUEState{
+        Accumulator accumulator;
+        DirtyPiece dirtyPiece;
+    };
+    
 
     // chess board representation
     struct Board {
@@ -35,6 +62,8 @@ namespace bbc {
         
         // NNUE hybrid
         bool                    use_nnue;
+        NNUEState               nnue_stack[256];
+        int                     nnue_ply;
 
         // init board with fen string
         void parse_fen(const char *  fen);

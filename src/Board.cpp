@@ -1,7 +1,6 @@
 
 #include <iostream>
 #include <cstring>        
-#include "Common.hpp"
 #include "Board.hpp"
 
 namespace bbc {
@@ -14,7 +13,8 @@ namespace bbc {
         hash(0),
         rep_len(0),
         rep_start(0),
-        use_nnue(true)
+        use_nnue(true),
+        nnue_ply(0)
     {}
     
     /* ---------- parseFEN ---------- */
@@ -160,7 +160,22 @@ namespace bbc {
         // store position in game history
         this->rep_len = 0;
         this->rep_start = 1;
-        this->rep_keys[this->rep_len++] = this->hash;   
+        this->rep_keys[this->rep_len++] = this->hash;
+
+        // init NNUE data
+        this->nnue_ply = 0;
+
+        auto& nn = this->nnue_stack[0];
+
+        // Clear dirty info
+        nn.dirtyPiece.dirtyNum = 0;
+        for (int i = 0; i < 3; ++i) {
+            nn.dirtyPiece.pc[i]   = no_piece;
+            nn.dirtyPiece.from[i] = no_sq;
+            nn.dirtyPiece.to[i]   = no_sq;
+        }
+
+        nn.accumulator.computedAccumulation = false;
     }
 
     /* ---------- print ---------- */

@@ -348,14 +348,79 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     if(capture || piece==P || piece == p) board.rep_start = board.rep_len;
     board.rep_keys[board.rep_len++] = board.hash;
 
-    // NEW: Filtered out illegal moves 
-    
-    // Legality: own king may not be in check
+     // *) Legality: own king may not be in check
     int king_sq = board.king_sq[side^1];
-
+    board.nnue_ply++;
     if (is_square_attacked(board, king_sq, side)) {
         undo_move(board, st, move);
         return 0;
+    }
+
+    // 9) NNUE (update dirtyPiece)
+    auto& parent = board.nnue_stack[board.nnue_ply - 1];
+    auto& child  = board.nnue_stack[board.nnue_ply];
+    child.accumulator.computedAccumulation = false;
+
+    // Clear dirty info
+    child.dirtyPiece.dirtyNum = 0;
+    for (int i = 0; i < 3; ++i) {
+        child.dirtyPiece.pc[i]   = no_piece;
+        child.dirtyPiece.from[i] = no_sq;
+        child.dirtyPiece.to[i]   = no_sq;
+    }
+
+    // 1) Moved piece
+    child.dirtyPiece.pc[child.dirtyPiece.dirtyNum]   = detail::BBC_TO_NNUE[piece];
+    child.dirtyPiece.from[child.dirtyPiece.dirtyNum] = detail::to_nnue_sq(source_square);
+    child.dirtyPiece.to[child.dirtyPiece.dirtyNum]   = detail::to_nnue_sq(target_square);
+    child.dirtyPiece.dirtyNum++;
+
+    // 2) Capture
+    if (st.captured != no_piece) {
+        child.dirtyPiece.pc[child.dirtyPiece.dirtyNum]   = detail::BBC_TO_NNUE[st.captured];
+        child.dirtyPiece.from[child.dirtyPiece.dirtyNum] = detail::to_nnue_sq(st.cap_sq);
+        child.dirtyPiece.to[child.dirtyPiece.dirtyNum]   = 64; // removed
+        child.dirtyPiece.dirtyNum++;
+    }
+
+    // 3) Promotion replaces moved pawn with promoted piece
+    if (promoted_piece) {
+        child.dirtyPiece.dirtyNum = 0;
+
+        child.dirtyPiece.pc[0]   = detail::BBC_TO_NNUE[piece];
+        child.dirtyPiece.from[0] = detail::to_nnue_sq(source_square);
+        child.dirtyPiece.to[0]   = 64; // pawn disappears
+
+        child.dirtyPiece.pc[1]   = detail::BBC_TO_NNUE[promoted_piece];
+        child.dirtyPiece.from[1] = 64; // promoted piece appears
+        child.dirtyPiece.to[1]   = detail::to_nnue_sq(target_square);
+
+        child.dirtyPiece.dirtyNum = 2;
+
+        if (st.captured != no_piece) {
+            child.dirtyPiece.pc[2]   = detail::BBC_TO_NNUE[st.captured];
+            child.dirtyPiece.from[2] = detail::to_nnue_sq(st.cap_sq);
+            child.dirtyPiece.to[2]   = 64;
+            child.dirtyPiece.dirtyNum = 3;
+        }
+    }
+
+    // 4) Castling also moves rook
+    if (castl) {
+        int rook_piece = (piece == K ? R : r);
+        int rook_from = -1, rook_to = -1;
+
+        switch (target_square) {
+            case g1: rook_from = h1; rook_to = f1; break;
+            case c1: rook_from = a1; rook_to = d1; break;
+            case g8: rook_from = h8; rook_to = f8; break;
+            case c8: rook_from = a8; rook_to = d8; break;
+        }
+
+        child.dirtyPiece.pc[child.dirtyPiece.dirtyNum]   = detail::BBC_TO_NNUE[rook_piece];
+        child.dirtyPiece.from[child.dirtyPiece.dirtyNum] = detail::to_nnue_sq(rook_from);
+        child.dirtyPiece.to[child.dirtyPiece.dirtyNum]   = detail::to_nnue_sq(rook_to);
+        child.dirtyPiece.dirtyNum++;
     }
 
     return 1;
@@ -464,6 +529,9 @@ void undo_move(Board& b, const StateInfo& st, const int move) {
 
         // 6) Flip side back to the original mover
         b.side ^= 1;
+
+        // 7) NNUE
+        b.nnue_ply--;
 }
 
 // make_move with legal check

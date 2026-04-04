@@ -97,13 +97,8 @@ inline constexpr int king_end_table[64] = {
     -50,-30,-30,-30,-30,-30,-30,-50
 };
 
-/*********************************
- * 
- * Make more efficient and Pestos??
- * 
- * 
- ************************************/
-int eval( const Board& board);
+
+int eval( Board& board);
 
 inline bool is_threefold(const Board& b) {
     int count = 0;

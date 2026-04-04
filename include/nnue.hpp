@@ -5,6 +5,7 @@
 #include <stdalign.h>
 
 #include "misc.hpp"
+#include "Board.hpp"
 
 #ifdef __cplusplus
 #   define EXTERNC extern "C"
@@ -23,48 +24,72 @@
 #   define DLLExport EXTERNC
 #endif
 
+namespace bbc{
+// ------------------------------------------------------------------ //
+//  Internal piece-code conversion                                     //
+//  Adapt the constants below to match YOUR engine's enum values.      //
+// ------------------------------------------------------------------ //
+namespace detail {
+ 
+  // --- YOUR ENGINE PIECE CONSTANTS (edit to match your enums) ---
+  //
+  // Example layout assumed here:
+  //   enum Piece { EMPTY=0, wP, wN, wB, wR, wQ, wK,
+  //                          bP, bN, bB, bR, bQ, bK };
+  //   enum Color  { WHITE=0, BLACK=1 };
+  //
+  // nnue_evaluate() wants:
+  //   wK=1, wQ=2, wR=3, wB=4, wN=5, wP=6
+  //   bK=7, bQ=8, bR=9, bB=10, bN=11, bP=12
+ 
+  // Map from your internal piece index → nnue piece code.
+  // Index 0 = EMPTY → 0 (ignored).
+  // Adjust the array body to match your Piece enum order.
+//   constexpr int BBC_TO_NNUE[13] = {
+//   //  EMPTY  wP  wN  wB  wR  wQ  wK   bP  bN  bB  bR  bQ  bK
+//         0,    6,  5,  4,  3,  2,  1,   12, 11, 10,  9,  8,  7
+//   };
+    constexpr int BBC_TO_NNUE[12] = {
+        6,  // P
+        5,  // N
+        4,  // B
+        3,  // R
+        2,  // Q
+        1,  // K
+        12, // p
+        11, // n
+        10, // b
+        9,  // r
+        8,  // q
+        7   // k
+    };
+
+ 
+  // Flip square vertically so A8=0…H1=63 → A1=0…H8=63 if needed.
+  // If your squares are already A1=0, set FLIP_SQUARE = false.
+  constexpr bool FLIP_SQUARE = true;
+ 
+  inline int to_nnue_sq(int sq) {
+    return FLIP_SQUARE ? (sq ^ 56) : sq;
+  }
+ 
+} // namespace detail
+ 
+
 /*pieces*/
-enum colors {
-    white,black
-};
-enum chessmen {
-    blank,king,queen,rook,bishop,knight,pawn
-};
 const int pic_tab[14] = {
-    blank,king,queen,rook,bishop,knight,pawn,
-    king,queen,rook,bishop,knight,pawn,blank
+    blank,king,queen,rk,bish,knight,pawn,
+    king,queen,rk,bish,knight,pawn,blank
 };
 
 #define PIECE(x)         (pic_tab[x])
 #define COMBINE(c,x)     ((x) + (c) * 6) 
 
-/*nnue data*/
-#if 0
-typedef struct DirtyPiece {
-  int dirtyNum;
-  int pc[3];
-  int from[3];
-  int to[3];
-} DirtyPiece;
-#endif
+bool update_accumulator(Board& board);
 
-typedef struct {
-  alignas(64) int16_t accumulation[2][256];
-  bool computedAccumulation;
-} Accumulator;
+void refresh_accumulator(Board& board);
 
-/*position*/
-typedef struct Position {
-  int player;
-  int* pieces;
-  int* squares;
-  Accumulator accumulator;
-#if 0
-  DirtyPiece dirtyPiece;
-#endif
-} Position;
-
-int nnue_evaluate_pos(Position* pos);
+int nnue_evaluate_pos(Board& board);
 
 /**
 * Load NNUE file
@@ -123,6 +148,7 @@ int nnue_evaluate(
   int* pieces,                      /** Array of pieces */
   int* squares                      /** Corresponding array of squares the piece stand on */
 );
+}
 #ifdef __cplusplus
 }
 #endif

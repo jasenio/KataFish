@@ -18,6 +18,9 @@ namespace bbc {
     enum { no_piece = -1, P, N, B, R, Q, K, p, n, b, r, q, k };
 
     // bishop and rook encodings
+    enum chessmen {
+        blank,king,queen,rk,bish,knight,pawn
+    };
     enum { rook, bishop };
 
     // ASCII pieces

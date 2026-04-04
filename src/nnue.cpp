@@ -50,7 +50,7 @@ INLINE int16x8_t vmovl_high_s16(int8x16_t v)
   return vmovl_s16(vget_high_s16(v));
 }
 #endif
-
+namespace bbc{
 enum {
   PS_W_PAWN   =  1,
   PS_B_PAWN   =  1 * 64 + 1,
@@ -194,23 +194,41 @@ INLINE unsigned make_index(int c, int s, int pc, int ksq)
   return orient(c, s) + PieceToIndex[c][pc] + PS_END * ksq;
 }
 
-static void half_kp_append_active_indices(const Position *pos, const int c,
+static void half_kp_append_active_indices(const Board& board, const int c,
     IndexList *active)
 {
-  int ksq = pos->squares[c ? 1 : 0];
+  // int ksq = pos->squares[c ? 1 : 0];
+  // add later
+  int ksq = detail::to_nnue_sq(board.king_sq[c]);
   ksq = orient(c, ksq);
-  for (int i = 2; pos->pieces[i]; i++) {
-    int sq = pos->squares[i];
-    int pc = pos->pieces[i];
-    active->values[active->size++] = make_index(c, sq, pc, ksq);
+  // for (int i = 2; pos->pieces[i]; i++) {
+  //   int sq = pos->squares[i];
+  //   // int sq = detail::to_nnue_sq(board.squares[i]);
+  //   int pc = pos->pieces[i];
+  //   // int pc = detail::BBC_TO_NNUE[board.pieces[i]];
+  //   active->values[active->size++] = make_index(c, sq, pc, ksq);
+  // }
+  
+  // add this later
+  for(int sq = 0; sq < 64; sq++){
+    int pc = board.piece_at[sq];
+    if (pc == -1  ) continue; // -1 == no_piece
+ 
+    int nnue_pc = detail::BBC_TO_NNUE[pc];
+    int nnue_sq = detail::to_nnue_sq(sq);
+ 
+    if(nnue_pc != 1 && nnue_pc != 7) // skip kings
+      active->values[active->size++] = make_index(c, nnue_sq, nnue_pc, ksq);
   }
 }
 
-#if 0
-static void half_kp_append_changed_indices(const Position *pos, const int c,
+// ** UPDATE** 
+static void half_kp_append_changed_indices(const Board& board, const int c,
     const DirtyPiece *dp, IndexList *removed, IndexList *added)
 {
-  int ksq = pos->squares[c ? 1 : 0];
+  // int ksq = pos->squares[c ? 1 : 0];
+  // add this later
+  int ksq = detail::to_nnue_sq(board.king_sq[c]);
   ksq = orient(c, ksq);
   for (int i = 0; i < dp->dirtyNum; i++) {
     int pc = dp->pc[i];
@@ -221,44 +239,50 @@ static void half_kp_append_changed_indices(const Position *pos, const int c,
       added->values[added->size++] = make_index(c, dp->to[i], pc, ksq);
   }
 }
-#endif
 
-static void append_active_indices(const Position *pos, IndexList active[2])
+
+static void append_active_indices(const Board& board, IndexList active[2])
 {
   for (unsigned c = 0; c < 2; c++)
-    half_kp_append_active_indices(pos, c, &active[c]);
+    half_kp_append_active_indices(board, c, &active[c]);
 }
 
-#if 0
-static void append_changed_indices(const Position *pos, IndexList removed[2],
+// ** UPDATE **
+
+static void append_changed_indices(const Board& board, IndexList removed[2],
     IndexList added[2], bool reset[2])
 {
-  const DirtyPiece *dp = &(pos->hstack[pos->hply].dirtyPiece);
+  // const DirtyPiece *dp = &(pos->hstack[pos->hply].dirtyPiece);
+  const DirtyPiece *dp = &(board.nnue_stack[board.nnue_ply].dirtyPiece);
   assert(dp->dirtyNum != 0);
 
-  if (pos->hstack[pos->hply-1].accumulator.computedAccumulation) {
+  // if (pos->hstack[pos->hply-1].accumulator.computedAccumulation) {
+  if (board.nnue_stack[board.nnue_ply-1].accumulator.computedAccumulation) {
     for (unsigned c = 0; c < 2; c++) {
       reset[c] = dp->pc[0] == (int)COMBINE(c, king);
       if (reset[c])
-        half_kp_append_active_indices(pos, c, &added[c]);
+        // half_kp_append_active_indices(pos, c, &added[c]);
+        half_kp_append_active_indices(board, c, &added[c]);
       else
-        half_kp_append_changed_indices(pos, c, dp, &removed[c], &added[c]);
+        // half_kp_append_changed_indices(pos, c, dp, &removed[c], &added[c]);
+        half_kp_append_changed_indices(board, c, dp, &removed[c], &added[c]);
     }
   } else {
-    const DirtyPiece *dp2 = &(pos->hstack[pos->hply-1].dirtyPiece);
+    // const DirtyPiece *dp2 = &(pos->hstack[pos->hply-1].dirtyPiece);
+    const DirtyPiece *dp2 = &(board.nnue_stack[board.nnue_ply-1].dirtyPiece);
     for (unsigned c = 0; c < 2; c++) {
       reset[c] =   dp->pc[0] == (int)COMBINE(c, king)
                 || dp2->pc[0] == (int)COMBINE(c, king);
       if (reset[c])
-        half_kp_append_active_indices(pos, c, &added[c]);
+        half_kp_append_active_indices(board, c, &added[c]);
       else {
-        half_kp_append_changed_indices(pos, c, dp, &removed[c], &added[c]);
-        half_kp_append_changed_indices(pos, c, dp2, &removed[c], &added[c]);
+        half_kp_append_changed_indices(board, c, dp, &removed[c], &added[c]);
+        half_kp_append_changed_indices(board, c, dp2, &removed[c], &added[c]);
       }
     }
   }
 }
-#endif
+
 
 // InputLayer = InputSlice<256 * 2>
 // out: 512 x clipped_t
@@ -872,7 +896,7 @@ INLINE void affine_txfm(clipped_t *input, void *output, unsigned inDims,
 
   clipped_t *outVec = (clipped_t *)output;
   for (unsigned i = 0; i < outDims; i++)
-    outVec[i] = clamp(tmp[i] >> SHIFT, 0, 127);
+    outVec[i] = NNUE_CLAMP(tmp[i] >> SHIFT, 0, 127);
 }
 #endif
 
@@ -885,13 +909,14 @@ static int16_t ft_weights alignas(64) [kHalfDimensions * FtInDims];
 #endif
 
 // Calculate cumulative value without using difference calculation
-INLINE void refresh_accumulator(Position *pos)
+void refresh_accumulator(Board& board)
 {
-  Accumulator *accumulator = &(pos->accumulator);
+  // Accumulator *accumulator = &(pos->accumulator);
+  Accumulator *accumulator = &(board.nnue_stack[board.nnue_ply].accumulator);
 
   IndexList activeIndices[2];
   activeIndices[0].size = activeIndices[1].size = 0;
-  append_active_indices(pos, activeIndices);
+  append_active_indices(board, activeIndices);
 
   for (unsigned c = 0; c < 2; c++) {
 #ifdef VECTOR
@@ -932,24 +957,28 @@ INLINE void refresh_accumulator(Position *pos)
   accumulator->computedAccumulation = true;
 }
 
-#if 0
+// ** UPDATE **
 // Calculate cumulative value using difference calculation if possible
-INLINE bool update_accumulator(Position *pos)
+bool update_accumulator(Board& board)
 {
-  Accumulator *accumulator = &(pos->hstack[pos->hply].accumulator);
+  // Accumulator *accumulator = &(pos->hstack[pos->hply].accumulator);
+  Accumulator *accumulator = &(board.nnue_stack[board.nnue_ply].accumulator);
   if (accumulator->computedAccumulation)
     return true;
 
   Accumulator *prevAcc;
-  if (   (pos->hply < 1 || !(prevAcc = &pos->hstack[pos->hply-1].accumulator)->computedAccumulation)
-      && (pos->hply < 2 || !(prevAcc = &pos->hstack[pos->hply-2].accumulator)->computedAccumulation) )
+  // if (   (pos->hply < 1 || !(prevAcc = &pos->hstack[pos->hply-1].accumulator)->computedAccumulation)
+  //     && (pos->hply < 2 || !(prevAcc = &pos->hstack[pos->hply-2].accumulator)->computedAccumulation) )
+  //   return false;
+  if (  (board.nnue_ply < 1 || !(prevAcc = &board.nnue_stack[board.nnue_ply-1].accumulator)->computedAccumulation)
+      && (board.nnue_ply < 2 || !(prevAcc = &board.nnue_stack[board.nnue_ply-2].accumulator)->computedAccumulation) )
     return false;
 
   IndexList removed_indices[2], added_indices[2];
   removed_indices[0].size = removed_indices[1].size = 0;
   added_indices[0].size = added_indices[1].size = 0;
   bool reset[2];
-  append_changed_indices(pos, removed_indices, added_indices, reset);
+  append_changed_indices(board, removed_indices, added_indices, reset);
 
 #ifdef VECTOR
   for (unsigned i = 0; i< kHalfDimensions / TILE_HEIGHT; i++) {
@@ -1023,20 +1052,20 @@ INLINE bool update_accumulator(Position *pos)
   accumulator->computedAccumulation = true;
   return true;
 }
-#endif
 
 // Convert input features
-INLINE void transform(Position *pos, clipped_t *output, mask_t *outMask)
+INLINE void transform(Board& board, clipped_t *output, mask_t *outMask)
 {
-#if 0
-  if (!update_accumulator(pos))
-#endif
-    refresh_accumulator(pos);
+  // ** UPDATE **
+  if (!update_accumulator(board))
+    refresh_accumulator(board);
 
-  int16_t (*accumulation)[2][256] = &pos->accumulator.accumulation;
+  // int16_t (*accumulation)[2][256] = &pos->accumulator.accumulation;
+  int16_t (*accumulation)[2][256] = &board.nnue_stack[board.nnue_ply].accumulator.accumulation;
   (void)outMask; // avoid compiler warning
 
-  const int perspectives[2] = { pos->player, !pos->player };
+  // const int perspectives[2] = { pos->player, !pos->player };
+  const int perspectives[2] = { board.side, !board.side};
   for (unsigned p = 0; p < 2; p++) {
     const unsigned offset = kHalfDimensions * p;
 
@@ -1053,7 +1082,7 @@ INLINE void transform(Position *pos, clipped_t *output, mask_t *outMask)
 #else
     for (unsigned i = 0; i < kHalfDimensions; i++) {
       int16_t sum = (*accumulation)[perspectives[p]][i];
-      output[offset + i] = clamp(sum, 0, 127);
+      output[offset + i] = NNUE_CLAMP(sum, 0, 127);
     }
 
 #endif
@@ -1072,7 +1101,7 @@ struct NetData {
 };
 
 // Evaluation function
-int nnue_evaluate_pos(Position *pos)
+int nnue_evaluate_pos(Board& board)
 {
   int32_t out_value;
   alignas(8) mask_t input_mask[FtOutDims / (8 * sizeof(mask_t))];
@@ -1086,7 +1115,7 @@ int nnue_evaluate_pos(Position *pos)
 #define B(x) (buf.x)
 #endif
 
-  transform(pos, B(input), input_mask);
+  transform(board, B(input), input_mask);
 
   affine_txfm(B(input), B(hidden1_out), FtOutDims, 32,
       hidden1_biases, hidden1_weights, input_mask, hidden1_mask, true);
@@ -1298,7 +1327,8 @@ DLLExport int _CDECL nnue_evaluate(int player, int* pieces, int* squares)
   pos.player = player;
   pos.pieces = pieces;
   pos.squares = squares;
-  return nnue_evaluate_pos(&pos);
+  return 0;
+  // return nnue_evaluate_pos(&pos);
 }
 
 DLLExport int _CDECL nnue_evaluate_fen(const char* fen)
@@ -1306,4 +1336,5 @@ DLLExport int _CDECL nnue_evaluate_fen(const char* fen)
   int pieces[33],squares[33],player,castle,fifty,move_number;
   decode_fen((char*)fen,&player,&castle,&fifty,&move_number,pieces,squares);;
   return nnue_evaluate(player,pieces,squares);
+}
 }
