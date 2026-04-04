@@ -26,8 +26,154 @@ int is_square_attacked(const Board& board, int square, int side_) {
     return 0;
 }
 
+// Attack test with custom occupancy and an optional "removed" square
+// (used for captures / en-passant so captured enemy pieces don't still count).
+static inline int is_square_attacked_occ(const Board& board, int square, int attacker_side,
+                                         U64 occupied, int removed_sq) {
+    U64 pawns, knights, bishops, rooks, queens, king;
+
+    if (attacker_side == white) {
+        pawns   = board.bitboards[P];
+        knights = board.bitboards[N];
+        bishops = board.bitboards[B];
+        rooks   = board.bitboards[R];
+        queens  = board.bitboards[Q];
+        king    = board.bitboards[K];
+    } else {
+        pawns   = board.bitboards[p];
+        knights = board.bitboards[n];
+        bishops = board.bitboards[b];
+        rooks   = board.bitboards[r];
+        queens  = board.bitboards[q];
+        king    = board.bitboards[k];
+    }
+
+    if (removed_sq != no_sq) {
+        const U64 rm = ~(1ULL << removed_sq);
+        pawns   &= rm;
+        knights &= rm;
+        bishops &= rm;
+        rooks   &= rm;
+        queens  &= rm;
+        king    &= rm;
+    }
+
+    // Pawns
+    if (attacker_side == white) {
+        if (pawn_attacks[black][square] & pawns) return 1;
+    } else {
+        if (pawn_attacks[white][square] & pawns) return 1;
+    }
+
+    // Knights
+    if (knight_attacks[square] & knights) return 1;
+
+    // Sliders
+    if (get_bishop_attacks(square, occupied) & (bishops | queens)) return 1;
+    if (get_rook_attacks(square, occupied)   & (rooks   | queens)) return 1;
+
+    // King
+    if (king_attacks[square] & king) return 1;
+
+    return 0;
+}
+
+// Assumes move is pseudo-legal.
+// Returns 1 if legal, 0 if illegal.
+int check_legal(const Board& board, int move) {
+    const int us   = board.side;
+    const int them = us ^ 1;
+
+    const int source_square  = get_move_source(move);
+    const int target_square  = get_move_target(move);
+    const int piece          = get_move_piece(move);
+    const bool capture       = get_move_capture(move);
+    const bool enpass        = get_move_enpassant(move);
+    const bool castl         = get_move_castling(move);
+
+    const U64 fromBB = 1ULL << source_square;
+    const U64 toBB   = 1ULL << target_square;
+
+    const int king_sq = board.king_sq[us];
+    const U64 occ0    = board.occupancies[both];
+
+    // -----------------------------
+    // 1) En-passant: special case
+    // -----------------------------
+    if (enpass) {
+        const int cap_sq = (us == white) ? target_square + 8 : target_square - 8;
+        U64 occ = occ0;
+
+        occ ^= fromBB;                  // remove moving pawn from source
+        occ ^= (1ULL << cap_sq);        // remove captured pawn
+        occ |= toBB;                    // place pawn on target
+
+        const int ksq_after = ((piece == K) || (piece == k)) ? target_square : king_sq;
+        return !is_square_attacked_occ(board, ksq_after, them, occ, cap_sq);
+    }
+
+    // -----------------------------
+    // 2) Castling: special case
+    // -----------------------------
+    if (castl) {
+        // Current square must not be in check
+        if (is_square_attacked_occ(board, king_sq, them, occ0))
+            return 0;
+
+        int king_mid, rook_from, rook_to;
+
+        if (us == white) {
+            if (target_square == g1) { king_mid = f1; rook_from = h1; rook_to = f1; }
+            else                     { king_mid = d1; rook_from = a1; rook_to = d1; }
+        } else {
+            if (target_square == g8) { king_mid = f8; rook_from = h8; rook_to = f8; }
+            else                     { king_mid = d8; rook_from = a8; rook_to = d8; }
+        }
+
+        // King passing square: rook has not moved yet
+        {
+            U64 occ_mid = occ0;
+            occ_mid ^= fromBB;
+            occ_mid |= (1ULL << king_mid);
+
+            if (is_square_attacked_occ(board, king_mid, them, occ_mid))
+                return 0;
+        }
+
+        // Final square: rook has moved
+        {
+            U64 occ_final = occ0;
+            occ_final ^= fromBB;                 // king leaves source
+            occ_final ^= (1ULL << rook_from);    // rook leaves corner
+            occ_final |= toBB;                   // king on final square
+            occ_final |= (1ULL << rook_to);      // rook on final square
+
+            if (is_square_attacked_occ(board, target_square, them, occ_final))
+                return 0;
+        }
+
+        return 1;
+    }
+
+    // -----------------------------
+    // 3) General move
+    // -----------------------------
+    int removed_sq = no_sq;
+    if (capture) removed_sq = target_square;
+
+    U64 occ = occ0;
+    occ ^= fromBB;                    // remove mover from source
+    if (removed_sq != no_sq)
+        occ ^= (1ULL << removed_sq);  // remove captured piece
+    occ |= toBB;                      // place mover on target
+
+    const int ksq_after = ((piece == K) || (piece == k)) ? target_square : king_sq;
+
+    return !is_square_attacked_occ(board, ksq_after, them, occ, removed_sq);
+}
+
 // -----------------------------
-// Make move (with legality filter)
+// Make move (with NO legality filter)
 // -----------------------------
 int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     auto& bitboards = board.bitboards;
@@ -202,6 +348,8 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     if(capture || piece==P || piece == p) board.rep_start = board.rep_len;
     board.rep_keys[board.rep_len++] = board.hash;
 
+    // NEW: Filtered out illegal moves 
+    
     // Legality: own king may not be in check
     int king_sq = board.king_sq[side^1];
 
@@ -317,6 +465,22 @@ void undo_move(Board& b, const StateInfo& st, const int move) {
         // 6) Flip side back to the original mover
         b.side ^= 1;
 }
+
+// make_move with legal check
+int make_move_legal(int move, int move_flag, Board& board, StateInfo& st) {
+    make_move(move, move_flag, board, st);
+    
+     // Legality: own king may not be in check
+     int king_sq = board.king_sq[board.side^1];
+
+     if (is_square_attacked(board, king_sq, board.side)) {
+         undo_move(board, st, move);
+         return 0;
+     }
+
+     return 1;    
+}
+
 
 // Null moves
 void make_null_move(Board& board, StateInfo& st){

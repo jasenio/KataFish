@@ -290,12 +290,28 @@ void uci_loop(Board& board, TimeContext& tc,  TranspositionTable& tt, SearchCont
             sc.stop.store(true, std::memory_order_relaxed);
             join_search();
 
+
             // Dev-only: keep noise off stdout so GUIs aren't confused
+            perft_test(board, 6);
             int start = get_time_ms();
             U64 nodes = perft_driver(board, 6);
             int ms = get_time_ms() - start;
-            std::fprintf(stderr, "perft nodes=%llu time=%dms\n",
+            std::fprintf(stderr, "perft_normal nodes=%llu time=%dms\n",
                          (unsigned long long)nodes, ms);
+            
+            // Ablation: perft with legality check
+            // start = get_time_ms();
+            // nodes = perft_driver_legal(board, 6);
+            // ms = get_time_ms() - start;
+            // std::fprintf(stderr, "perft_legal nodes=%llu time=%dms\n",
+            //              (unsigned long long)nodes, ms);
+
+            // Ablation: perft with make_move_simple (no legality check, no undo)
+            // start = get_time_ms();
+            // nodes = perft_driver_simple(board, 6);
+            // ms = get_time_ms() - start;
+            // std::fprintf(stderr, "perft_simple nodes=%llu time=%dms\n",
+            //              (unsigned long long)nodes, ms);
         }
         // else: ignore unknown commands quietly
     }

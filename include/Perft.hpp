@@ -5,8 +5,52 @@
 
 namespace bbc{
 
-// perft driver
+// perft driver with make_move/undo_move + legality
 inline U64 perft_driver(Board& board, int depth)
+{
+    StateInfo st;
+
+    U64 nodes = 0;
+
+    // reccursion escape condition
+    if (depth == 0)
+    {
+        // increment nodes count (count reached positions)
+        nodes++;
+        return nodes;
+    }
+    
+    // create move list instance
+    MoveList move_list;
+    
+    // generate moves
+    generate_moves(move_list, board);
+
+    // loop over generated moves
+    int num_moves = move_list.count;
+    
+    for (int move_count = 0; move_count < num_moves; move_count++)
+    {               
+
+        // make move
+        if (!make_move(move_list.moves[move_count], all_moves, board, st))
+            // skip to the next move
+            continue;
+
+        // call perft driver recursively
+        nodes+=perft_driver(board, depth - 1);
+        
+        // take back
+        undo_move(board, st, move_list.moves[move_count]);
+
+    }
+    return nodes;
+}
+
+// *** ALBATION STUDIES ***
+
+// perft driver with make_move/undo_move
+inline U64 perft_driver_legal(Board& board, int depth)
 {
     StateInfo st;
 
@@ -32,12 +76,12 @@ inline U64 perft_driver(Board& board, int depth)
     for (int move_count = 0; move_count < num_moves; move_count++)
     {           
         // make move
-        if (!make_move(move_list.moves[move_count], all_moves, board, st))
+        if (!make_move_legal(move_list.moves[move_count], all_moves, board, st))
             // skip to the next move
             continue;
 
         // call perft driver recursively
-        nodes+=perft_driver(board, depth - 1);
+        nodes+=perft_driver_legal(board, depth - 1);
         
         // take back
         undo_move(board, st, move_list.moves[move_count]);
@@ -45,6 +89,7 @@ inline U64 perft_driver(Board& board, int depth)
     }
     return nodes;
 }
+
 
 // perft test
 inline uint64_t perft_test(Board& board, int depth)
@@ -80,7 +125,7 @@ inline uint64_t perft_test(Board& board, int depth)
         U64 cummulative_nodes = nodes;
         
         // call perft driver recursively
-        perft_driver(board, depth - 1);
+        nodes += perft_driver(board, depth - 1);
         
         // old nodes
         U64 old_nodes = nodes - cummulative_nodes;
