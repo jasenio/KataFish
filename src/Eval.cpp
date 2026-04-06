@@ -6,7 +6,8 @@ int eval(Board& board){
     const auto& bitboards = board.bitboards;
 
     if (board.use_nnue) { // hybrid evaluation: use NNUE during opening-mid game
-        return nnue::evaluate(board);
+        // g_evals++; // DEBUG
+        return nnue::evaluate(board) * (100 - board.fifty) / 100; // fade out NNUE as fifty move rule increases;
 
         int major_pieces = 0;
 

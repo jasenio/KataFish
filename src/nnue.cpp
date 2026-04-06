@@ -252,28 +252,25 @@ static void append_active_indices(const Board& board, IndexList active[2])
 static void append_changed_indices(const Board& board, IndexList removed[2],
     IndexList added[2], bool reset[2])
 {
-  // const DirtyPiece *dp = &(pos->hstack[pos->hply].dirtyPiece);
+  // use dirty piece, lazy updates
   const DirtyPiece *dp = &(board.nnue_stack[board.nnue_ply].dirtyPiece);
   assert(dp->dirtyNum != 0);
 
-  // if (pos->hstack[pos->hply-1].accumulator.computedAccumulation) {
   if (board.nnue_stack[board.nnue_ply-1].accumulator.computedAccumulation) {
     for (unsigned c = 0; c < 2; c++) {
       reset[c] = dp->pc[0] == (int)COMBINE(c, king);
-      if (reset[c])
-        // half_kp_append_active_indices(pos, c, &added[c]);
+      if (reset[c]) // rebuild from scratch if king move
         half_kp_append_active_indices(board, c, &added[c]);
       else
-        // half_kp_append_changed_indices(pos, c, dp, &removed[c], &added[c]);
         half_kp_append_changed_indices(board, c, dp, &removed[c], &added[c]);
     }
-  } else {
-    // const DirtyPiece *dp2 = &(pos->hstack[pos->hply-1].dirtyPiece);
+  } 
+  else {
     const DirtyPiece *dp2 = &(board.nnue_stack[board.nnue_ply-1].dirtyPiece);
     for (unsigned c = 0; c < 2; c++) {
       reset[c] =   dp->pc[0] == (int)COMBINE(c, king)
                 || dp2->pc[0] == (int)COMBINE(c, king);
-      if (reset[c])
+      if (reset[c]) // rebuild from scratch if king move
         half_kp_append_active_indices(board, c, &added[c]);
       else {
         half_kp_append_changed_indices(board, c, dp, &removed[c], &added[c]);
@@ -884,7 +881,7 @@ INLINE void affine_txfm(clipped_t *input, void *output, unsigned inDims,
 {
   (void)inMask; (void)outMask; (void)pack8_and_calc_mask;
 
-  std::vector<int32_t> tmp(outDims);
+  int32_t tmp[32];
 
   for (unsigned i = 0; i < outDims; i++)
     tmp[i] = biases[i];
@@ -907,13 +904,106 @@ static int16_t ft_weights alignas(64) [kHalfDimensions * FtInDims];
 #ifdef VECTOR
 #define TILE_HEIGHT (NUM_REGS * SIMD_WIDTH / 16)
 #endif
+static bool dirty_piece_has_king_move(const DirtyPiece& dp)
+{
+  for (int i = 0; i < dp.dirtyNum; i++) {
+    if (PIECE(dp.pc[i]) == king)
+      return true;
+  }
+
+  return false;
+}
+
+static bool reverse_update_accumulator(const Board& board,
+    const Accumulator& source, const DirtyPiece& dp, Accumulator& target)
+{
+  if (!source.computedAccumulation || dp.dirtyNum == 0 || dirty_piece_has_king_move(dp))
+    return false;
+
+  for (unsigned c = 0; c < 2; c++) {
+    IndexList removed, added;
+    removed.size = 0;
+    added.size = 0;
+
+    int ksq = detail::to_nnue_sq(board.king_sq[c]);
+    ksq = orient(c, ksq);
+
+    for (int i = 0; i < dp.dirtyNum; i++) {
+      const int pc = dp.pc[i];
+      if (PIECE(pc) == king)
+        continue;
+
+      if (dp.to[i] != 64)
+        removed.values[removed.size++] = make_index(c, dp.to[i], pc, ksq);
+      if (dp.from[i] != 64)
+        added.values[added.size++] = make_index(c, dp.from[i], pc, ksq);
+    }
+
+    memcpy(target.accumulation[c], source.accumulation[c],
+        kHalfDimensions * sizeof(int16_t));
+
+    for (size_t k = 0; k < removed.size; k++) {
+      const unsigned index = removed.values[k];
+      const unsigned offset = kHalfDimensions * index;
+
+      for (unsigned j = 0; j < kHalfDimensions; j++)
+        target.accumulation[c][j] -= ft_weights[offset + j];
+    }
+
+    for (size_t k = 0; k < added.size; k++) {
+      const unsigned index = added.values[k];
+      const unsigned offset = kHalfDimensions * index;
+
+      for (unsigned j = 0; j < kHalfDimensions; j++)
+        target.accumulation[c][j] += ft_weights[offset + j];
+    }
+  }
+
+  target.computedAccumulation = true;
+  return true;
+}
+
+// back propagate features 2 ply back
+void back_update(Board& board){
+  // assume accumulator is calculate for current ply
+  if(!board.nnue_stack[board.nnue_ply].accumulator.computedAccumulation || board.nnue_ply==0) return;
+
+  // last ply
+  // pos[curr] = pos[prev] + dirtyPiece[curr]
+  // pos[prev] = pos[curr] - dirtyPiece[curr]
+  auto& current = board.nnue_stack[board.nnue_ply];
+
+  // last ply
+  // pos[curr] = pos[prev] + dirtyPiece[curr]
+  // pos[prev] = pos[curr] - dirtyPiece[curr]
+  
+  auto& parent = board.nnue_stack[board.nnue_ply - 1];
+  if (!parent.accumulator.computedAccumulation
+      && !reverse_update_accumulator(board, current.accumulator,
+          current.dirtyPiece, parent.accumulator)) {
+    return;
+  }
+
+  if (board.nnue_ply < 2)
+    return;
+
+  // last last ply
+  // pos[prev] = pos[prev-prev] + dirtyPiece[prev]
+  // pos[prev-prev] = pos[prev] - dirtyPiece[prev]
+  auto& grandparent = board.nnue_stack[board.nnue_ply - 2];
+  if (!grandparent.accumulator.computedAccumulation) {
+    reverse_update_accumulator(board, parent.accumulator,
+        parent.dirtyPiece, grandparent.accumulator);
+  }
+}
 
 // Calculate cumulative value without using difference calculation
-void refresh_accumulator(Board& board)
+INLINE void refresh_accumulator(Board& board)
 {
-  // Accumulator *accumulator = &(pos->accumulator);
+  // g_refreshes++; // DEBUG
   Accumulator *accumulator = &(board.nnue_stack[board.nnue_ply].accumulator);
 
+  // rebuild accumulator from scratch
   IndexList activeIndices[2];
   activeIndices[0].size = activeIndices[1].size = 0;
   append_active_indices(board, activeIndices);
@@ -941,9 +1031,11 @@ void refresh_accumulator(Board& board)
         accTile[j] = acc[j];
     }
 #else
+    // copy biases
     memcpy(accumulator->accumulation[c], ft_biases,
         kHalfDimensions * sizeof(int16_t));
 
+    // add contributions from active features
     for (size_t k = 0; k < activeIndices[c].size; k++) {
       unsigned index = activeIndices[c].values[k];
       unsigned offset = kHalfDimensions * index;
@@ -955,25 +1047,31 @@ void refresh_accumulator(Board& board)
   }
 
   accumulator->computedAccumulation = true;
+
+  // back update to computed parent and grandparent
+  back_update(board);
 }
 
 // ** UPDATE **
 // Calculate cumulative value using difference calculation if possible
-bool update_accumulator(Board& board)
+INLINE bool update_accumulator(Board& board)
 {
-  // Accumulator *accumulator = &(pos->hstack[pos->hply].accumulator);
   Accumulator *accumulator = &(board.nnue_stack[board.nnue_ply].accumulator);
+
+  // skip if already computed
   if (accumulator->computedAccumulation)
     return true;
 
   Accumulator *prevAcc;
-  // if (   (pos->hply < 1 || !(prevAcc = &pos->hstack[pos->hply-1].accumulator)->computedAccumulation)
-  //     && (pos->hply < 2 || !(prevAcc = &pos->hstack[pos->hply-2].accumulator)->computedAccumulation) )
-  //   return false;
+  
+  // check the previous two accumulators for a usable accumulator
   if (  (board.nnue_ply < 1 || !(prevAcc = &board.nnue_stack[board.nnue_ply-1].accumulator)->computedAccumulation)
-      && (board.nnue_ply < 2 || !(prevAcc = &board.nnue_stack[board.nnue_ply-2].accumulator)->computedAccumulation) )
-    return false;
+      && (board.nnue_ply < 2 || !(prevAcc = &board.nnue_stack[board.nnue_ply-2].accumulator)->computedAccumulation) ){
+        return false;
+  }
 
+  // propagate one of the last two accumulators
+  // g_updates++; // DEBUG
   IndexList removed_indices[2], added_indices[2];
   removed_indices[0].size = removed_indices[1].size = 0;
   added_indices[0].size = added_indices[1].size = 0;
@@ -1022,12 +1120,14 @@ bool update_accumulator(Board& board)
   }
 #else
   for (unsigned c = 0; c < 2; c++) {
-    if (reset[c]) {
+    if (reset[c]) { // create new accumulator on refresh for THIS perspective
       memcpy(accumulator->accumulation[c], ft_biases,
           kHalfDimensions * sizeof(int16_t));
     } else {
+      // copy the previous accumulator to current
       memcpy(accumulator->accumulation[c], prevAcc->accumulation[c],
           kHalfDimensions * sizeof(int16_t));
+
       // Difference calculation for the deactivated features
       for (unsigned k = 0; k < removed_indices[c].size; k++) {
         unsigned index = removed_indices[c].values[k];
@@ -1057,14 +1157,15 @@ bool update_accumulator(Board& board)
 INLINE void transform(Board& board, clipped_t *output, mask_t *outMask)
 {
   // ** UPDATE **
+
+  // if prev two accumulators are unusable, refresh accumulator ** CHANGE THIS **
   if (!update_accumulator(board))
     refresh_accumulator(board);
 
-  // int16_t (*accumulation)[2][256] = &pos->accumulator.accumulation;
+  
   int16_t (*accumulation)[2][256] = &board.nnue_stack[board.nnue_ply].accumulator.accumulation;
   (void)outMask; // avoid compiler warning
 
-  // const int perspectives[2] = { pos->player, !pos->player };
   const int perspectives[2] = { board.side, !board.side};
   for (unsigned p = 0; p < 2; p++) {
     const unsigned offset = kHalfDimensions * p;
@@ -1080,6 +1181,7 @@ INLINE void transform(Board& board, clipped_t *output, mask_t *outMask)
     }
 
 #else
+    // update score in output with clamp
     for (unsigned i = 0; i < kHalfDimensions; i++) {
       int16_t sum = (*accumulation)[perspectives[p]][i];
       output[offset + i] = NNUE_CLAMP(sum, 0, 127);
@@ -1115,14 +1217,18 @@ int nnue_evaluate_pos(Board& board)
 #define B(x) (buf.x)
 #endif
 
+  // transform accumulator appropriately
   transform(board, B(input), input_mask);
 
+  // propagate through hidden layer
   affine_txfm(B(input), B(hidden1_out), FtOutDims, 32,
       hidden1_biases, hidden1_weights, input_mask, hidden1_mask, true);
 
+  // propagate through second hidden layer
   affine_txfm(B(hidden1_out), B(hidden2_out), 32, 32,
       hidden2_biases, hidden2_weights, hidden1_mask, NULL, false);
 
+  // calculate output value
   out_value = affine_propagate((int8_t *)B(hidden2_out), output_biases,
       output_weights);
 

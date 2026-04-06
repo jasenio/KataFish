@@ -85,9 +85,6 @@ const int pic_tab[14] = {
 #define PIECE(x)         (pic_tab[x])
 #define COMBINE(c,x)     ((x) + (c) * 6) 
 
-bool update_accumulator(Board& board);
-
-void refresh_accumulator(Board& board);
 
 int nnue_evaluate_pos(Board& board);
 

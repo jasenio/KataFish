@@ -10,6 +10,10 @@
 
 
 namespace bbc {
+    extern int g_refreshes;
+    extern int g_updates;
+    extern int g_evals;
+
     /*nnue data*/
     typedef struct DirtyPiece {
     int dirtyNum;
@@ -50,6 +54,7 @@ namespace bbc {
         int                     enpassant;
         int                     castle;
         int                     ply;
+        int                     fifty;
 
         // info optimizations
         int                     piece_at[64];
@@ -62,7 +67,7 @@ namespace bbc {
         
         // NNUE hybrid
         bool                    use_nnue;
-        NNUEState               nnue_stack[256];
+        NNUEState               nnue_stack[1024];
         int                     nnue_ply;
 
         // init board with fen string
@@ -101,6 +106,7 @@ namespace bbc {
         // repetitions
         int      old_rep_len;
         int      old_rep_start;
+        int      old_fifty;
     };
 
     // print bitboard

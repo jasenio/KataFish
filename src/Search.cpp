@@ -57,6 +57,7 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
 
     // 0: Three fold rep
     if(board.ply && is_threefold(board)) return {0, 0};
+    if(board.fifty >= 100) return {0, 0}; // fifty move rule draw
 
     // 1: Quiescence Search at terminal nodes
     if (depth == 0) {
@@ -80,7 +81,7 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
         }
     }
 
-    // 3: Null move
+    // 3: Null move 
     if(sc.null_enabled && alpha != beta -1){ // not a null branch
         if(depth >= 3 && board.ply >= 1){ // sufficient depth
             int check = in_check_now(board);
@@ -172,6 +173,11 @@ move_utility iterative_deepening(int depth, TimeContext& tc, Board& board, Trans
         U64 cur_time = get_time_ms();
         U64 cur_nodes = sc.nodes;
 
+        // g_refreshes = 0; // DEBUG
+        // g_updates   = 0;
+        // g_evals     = 0;
+
+        board.nnue_ply = 0; 
         move_utility cur_move = negamax(-INF, INF, i, board, tt, sc);
         if(sc.stop.load(std::memory_order_relaxed)) break; // terminated early, don't use this
 
@@ -195,7 +201,8 @@ move_utility iterative_deepening(int depth, TimeContext& tc, Board& board, Trans
             elapsed_time
         );
 
-
+        // printf("info string refreshes %d updates %d evals %d\n", g_refreshes, g_updates, g_evals); // DEBUG
+        
         // 1) Terminate on soft time
         if(elapsed_time >= sc.soft) break; 
 

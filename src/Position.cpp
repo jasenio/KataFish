@@ -213,6 +213,7 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     // pos history
     st.old_rep_len   = board.rep_len;
     st.old_rep_start = board.rep_start;
+    st.old_fifty = board.fifty;
 
     if (enpass) {
         st.captured = (side == white)? p : P;
@@ -225,6 +226,7 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
         st.captured = no_piece;
         st.cap_sq   = no_sq;
     }
+
     // 0) clear enpassant hash
     if(enpassant!=no_sq) board.xor_ep(enpassant);
     enpassant = no_sq;
@@ -236,12 +238,18 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     piece_at[target_square] = piece;
     board.xor_piece(piece, source_square);
 
+    // 1a) Update fifty move rule always
+    board.fifty++;
+
+    if(piece==P || piece==p) board.fifty = 0; // reset fifty on pawn move
+
     // update king_sq
     if(piece==K) board.king_sq[white] = target_square;
     else if(piece==k) board.king_sq[black] = target_square;
 
     // 2) Captures/Enpassant
     if (capture) {
+        board.fifty = 0; // reset fifty on capture
         // 2a) En-passant capture ***
         if (enpass) {
             if(side == white) {
@@ -348,23 +356,25 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     if(capture || piece==P || piece == p) board.rep_start = board.rep_len;
     board.rep_keys[board.rep_len++] = board.hash;
 
-     // *) Legality: own king may not be in check
-    int king_sq = board.king_sq[side^1];
+    // 9-a) Legality: own king may not be in check
     board.nnue_ply++;
+    int king_sq = board.king_sq[side^1];
     if (is_square_attacked(board, king_sq, side)) {
         undo_move(board, st, move);
         return 0;
     }
 
-    // 9) NNUE (update dirtyPiece)
+    // 9-b) NNUE (update dirtyPiece if legal)
     auto& parent = board.nnue_stack[board.nnue_ply - 1];
     auto& child  = board.nnue_stack[board.nnue_ply];
+    // child.accumulator = parent.accumulator; // copy accumulator from parent
     child.accumulator.computedAccumulation = false;
-
+    
+    #if 1
     // Clear dirty info
     child.dirtyPiece.dirtyNum = 0;
     for (int i = 0; i < 3; ++i) {
-        child.dirtyPiece.pc[i]   = no_piece;
+        child.dirtyPiece.pc[i]   = blank;
         child.dirtyPiece.from[i] = no_sq;
         child.dirtyPiece.to[i]   = no_sq;
     }
@@ -379,7 +389,7 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
     if (st.captured != no_piece) {
         child.dirtyPiece.pc[child.dirtyPiece.dirtyNum]   = detail::BBC_TO_NNUE[st.captured];
         child.dirtyPiece.from[child.dirtyPiece.dirtyNum] = detail::to_nnue_sq(st.cap_sq);
-        child.dirtyPiece.to[child.dirtyPiece.dirtyNum]   = 64; // removed
+        child.dirtyPiece.to[child.dirtyPiece.dirtyNum]   = no_sq; // removed
         child.dirtyPiece.dirtyNum++;
     }
 
@@ -422,6 +432,7 @@ int make_move(int move, int move_flag, Board& board, StateInfo& st) {
         child.dirtyPiece.to[child.dirtyPiece.dirtyNum]   = detail::to_nnue_sq(rook_to);
         child.dirtyPiece.dirtyNum++;
     }
+    #endif
 
     return 1;
 }
@@ -530,6 +541,9 @@ void undo_move(Board& b, const StateInfo& st, const int move) {
         // 6) Flip side back to the original mover
         b.side ^= 1;
 
+        // 6a) restore fifty move rule
+        b.fifty = st.old_fifty;
+
         // 7) NNUE
         b.nnue_ply--;
 }
@@ -560,11 +574,34 @@ void make_null_move(Board& board, StateInfo& st){
     
     board.side^= 1;
     board.hash ^= random_side;
+
+    // nnue ***** TODO: fix to respect NNUE dirty pieces and accumulator evaluation ****
+    #if 0
+    board.nnue_ply++;
+    return;
+    auto& parent = board.nnue_stack[board.nnue_ply - 1];
+    auto& child  = board.nnue_stack[board.nnue_ply];
+    // child.accumulator = parent.accumulator; // copy accumulator from parent
+    child.accumulator.computedAccumulation = false;
+
+    // Clear dirty info
+    child.dirtyPiece.dirtyNum = 0;
+    for (int i = 0; i < 3; ++i) {
+        child.dirtyPiece.pc[i]   = blank;
+        child.dirtyPiece.from[i] = no_sq;
+        child.dirtyPiece.to[i]   = no_sq;
+    }
+    #endif
 }
 void restore_null(Board& board, StateInfo& st){
     board.side^=1;
     board.enpassant = st.old_ep;
     board.hash      = st.old_hash;
+
+    // nnue
+    #if 0
+    board.nnue_ply--;
+    #endif
 }
 
 

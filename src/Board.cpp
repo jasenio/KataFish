@@ -4,12 +4,18 @@
 #include "Board.hpp"
 
 namespace bbc {
+    // DEBUG
+    int g_refreshes = 0;
+    int g_updates = 0;
+    int g_evals = 0;
+
     // constructor
     Board::Board() :
         side(white),
         enpassant(no_sq),
         castle(0),
         ply(0),
+        fifty(0),
         hash(0),
         rep_len(0),
         rep_start(0),
@@ -162,6 +168,9 @@ namespace bbc {
         this->rep_start = 1;
         this->rep_keys[this->rep_len++] = this->hash;
 
+        // fifty move rule
+        this->fifty = 0;
+
         // init NNUE data
         this->nnue_ply = 0;
 
@@ -170,7 +179,7 @@ namespace bbc {
         // Clear dirty info
         nn.dirtyPiece.dirtyNum = 0;
         for (int i = 0; i < 3; ++i) {
-            nn.dirtyPiece.pc[i]   = no_piece;
+            nn.dirtyPiece.pc[i]   = blank;
             nn.dirtyPiece.from[i] = no_sq;
             nn.dirtyPiece.to[i]   = no_sq;
         }
