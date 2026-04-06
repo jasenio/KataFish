@@ -53,12 +53,13 @@ int qsearch(int alpha, int beta, Board& board, TranspositionTable& tt, SearchCon
 // from AIMA, game is preserved in global array bitboards[] instead of an input, copy and takeback mimic this operation
 move_utility negamax(int alpha, int beta, int depth, Board& board, TranspositionTable& tt, SearchContext& sc) {
     poll_time(sc); // increment node and check time
+
     if(sc.stop.load(std::memory_order_relaxed)) return {0, 0};
 
     // 0: Three fold rep
     if(board.ply && is_threefold(board)) return {0, 0};
     if(board.fifty >= 100) return {0, 0}; // fifty move rule draw
-
+    
     // 1: Quiescence Search at terminal nodes
     if (depth == 0) {
         int s = qsearch(alpha, beta, board, tt, sc); 
@@ -173,11 +174,10 @@ move_utility iterative_deepening(int depth, TimeContext& tc, Board& board, Trans
         U64 cur_time = get_time_ms();
         U64 cur_nodes = sc.nodes;
 
-        // g_refreshes = 0; // DEBUG
-        // g_updates   = 0;
-        // g_evals     = 0;
+        g_refreshes = 0; // DEBUG
+        g_updates   = 0;
+        g_evals     = 0;
 
-        board.nnue_ply = 0; 
         move_utility cur_move = negamax(-INF, INF, i, board, tt, sc);
         if(sc.stop.load(std::memory_order_relaxed)) break; // terminated early, don't use this
 

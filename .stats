@@ -1,0 +1,73 @@
+WITHOUT BACKUPDATES
+info depth 1 score cp 34 nodes 21 nps 21 time 0
+info string refreshes 1 updates 20 evals 20
+info depth 2 score cp 12 nodes 121 nps 100 time 0
+info string refreshes 1 updates 86 evals 86
+info depth 3 score cp 22 nodes 786 nps 221666 time 3
+info string refreshes 587 updates 36 evals 621
+info depth 4 score cp 17 nodes 3850 nps 204266 time 15
+info string refreshes 2361 updates 408 evals 2751
+info depth 5 score cp 29 nodes 16556 nps 201682 time 63
+info string refreshes 11244 updates 991 evals 12181
+info depth 6 score cp 18 nodes 58839 nps 190463 time 222
+info string refreshes 30344 updates 11804 evals 41594
+info depth 7 score cp 31 nodes 380372 nps 238172 time 1350
+info string refreshes 272678 updates 51077 evals 320914
+= 85% refresh rate
+
+WITH BACKUPDATES
+info depth 1 score cp 34 nodes 21 nps 21 time 0
+info string refreshes 1 updates 20 evals 20
+info depth 2 score cp 12 nodes 121 nps 100 time 0
+info string refreshes 1 updates 86 evals 86
+info depth 3 score cp 22 nodes 786 nps 665000 time 1
+info string refreshes 21 updates 601 evals 621
+info depth 4 score cp 17 nodes 3850 nps 612800 time 5
+info string refreshes 88 updates 2664 evals 2751
+info depth 5 score cp 29 nodes 16556 nps 577545 time 22
+info string refreshes 464 updates 11718 evals 12181
+info depth 6 score cp 18 nodes 58839 nps 445084 time 95
+info string refreshes 1295 updates 40300 evals 41594
+info depth 7 score cp 31 nodes 380372 nps 568079 time 566
+info string refreshes 12336 updates 308579 evals 320914
+info depth 8 score cp 19 nodes 1115353 nps 362059 time 2030
+info string refreshes 28249 updates 805586 evals 833834
+= 3.5% refresh rate
+
+WITHOUT REFRESH AT START
+info depth 1 score cp 34 nodes 21 nps 21 time 0
+info string refreshes 0 updates 20 evals 20
+info depth 2 score cp 12 nodes 121 nps 100 time 0
+info string refreshes 0 updates 86 evals 86
+info depth 3 score cp 22 nodes 786 nps 665000 time 1
+info string refreshes 20 updates 601 evals 621
+info depth 4 score cp 17 nodes 3850 nps 510666 time 6
+info string refreshes 87 updates 2664 evals 2751
+info depth 5 score cp 29 nodes 16556 nps 577545 time 22
+info string refreshes 463 updates 11718 evals 12181
+info depth 6 score cp 18 nodes 58839 nps 454655 time 93
+info string refreshes 1294 updates 40300 evals 41594
+info depth 7 score cp 31 nodes 380372 nps 587811 time 547
+info string refreshes 12335 updates 308579 evals 320914
+info depth 8 score cp 19 nodes 1115353 nps 374036 time 1965
+info string refreshes 28248 updates 805586 evals 833834
+
+WITH NULL PRUNING
+info depth 1 score cp 34 nodes 21 nps 21 time 0
+info string refreshes 0 updates 20 evals 20
+info depth 2 score cp 12 nodes 121 nps 100000 time 1
+info string refreshes 0 updates 86 evals 86
+info depth 3 score cp 22 nodes 786 nps 332500 time 2
+info string refreshes 20 updates 601 evals 621
+info depth 4 score cp 17 nodes 3688 nps 483666 time 6
+info string refreshes 82 updates 2537 evals 2633
+info depth 5 score cp 29 nodes 15182 nps 522454 time 22
+info string refreshes 414 updates 10701 evals 11130
+info depth 6 score cp 18 nodes 48311 nps 435907 time 76
+info string refreshes 1020 updates 32673 evals 34071
+info depth 7 score cp 31 nodes 203174 nps 485463 time 319
+info string refreshes 5495 updates 157807 evals 163952
+info depth 8 score cp 19 nodes 445856 nps 315992 time 768
+info string refreshes 7856 updates 276864 evals 288023
+info depth 9 score cp 27 nodes 1930016 nps 484544 time 3063
+info string refreshes 49835 updates 1551782 evals 1605746

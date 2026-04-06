@@ -167,6 +167,7 @@ namespace bbc {
         this->rep_len = 0;
         this->rep_start = 1;
         this->rep_keys[this->rep_len++] = this->hash;
+        // this->ply = 0;
 
         // fifty move rule
         this->fifty = 0;
