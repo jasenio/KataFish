@@ -76,11 +76,13 @@ Approximate playing strength: ~**2400 ELO** (based on games vs Stockfish NNUE, t
 ---
 
 ## Future Work
-- **NNUE** Swap from a BLACKBOX to EFFICIENTLY UPDATABLE (use accumulators so we don't load the entire network each time). NPS is ~1% currently
 ### TO DO
-- Multithreaded Search
-- Penalty for fifty move rule
-- Larger ply stack?
+- Update readme (additions) + Add statistics (ELO)
+- Add tutorial on NNUE + findings (What did I do? features==>layers, dirtyPieces, etc.)
+- Add blog about Chess Resources (traditional vs using AI today)
+- Ablation Studies (fun!)
+- Train personal NNUE
+- Multi-Threaded Search
 ---
 
 ## Acknowledgements

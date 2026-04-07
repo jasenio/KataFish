@@ -1,0 +1,7 @@
+PVS vs Non-PVS
+Score of update vs old: 183 - 99 - 80  [0.616] 362
+...      update playing White: 111 - 36 - 35  [0.706] 182
+...      update playing Black: 72 - 63 - 45  [0.525] 180
+...      White vs Black: 174 - 108 - 80  [0.591] 362
+Elo difference: 82.1 +/- 32.3, LOS: 100.0 %, DrawRatio: 22.1 %
+SPRT: llr 2.96 (100.7%), lbound -2.94, ubound 2.94 - H1 was accepted

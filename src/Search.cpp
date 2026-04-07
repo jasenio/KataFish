@@ -51,7 +51,7 @@ int qsearch(int alpha, int beta, Board& board, TranspositionTable& tt, SearchCon
 }
 
 // from AIMA, game is preserved in global array bitboards[] instead of an input, copy and takeback mimic this operation
-move_utility negamax(int alpha, int beta, int depth, Board& board, TranspositionTable& tt, SearchContext& sc) {
+move_utility negamax(int alpha, int beta, int depth, Board& board, TranspositionTable& tt, SearchContext& sc, bool pvNode) {
     poll_time(sc); // increment node and check time
 
     if(sc.stop.load(std::memory_order_relaxed)) return {0, 0};
@@ -83,7 +83,7 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
     }
 
     // 3: Null move 
-    if(sc.null_enabled && alpha != beta -1){ // not a null branch
+    if(sc.null_enabled && !pvNode){
         if(depth >= 3 && board.ply >= 1){ // sufficient depth
             int check = in_check_now(board);
             if(!check){ // not in check
@@ -95,7 +95,7 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
                         StateInfo st;
                         make_null_move(board, st);
                         int R = 2 + depth/6;
-                        move_utility score = negamax(-beta, -beta+1, depth-1-R, board, tt, sc);
+                        move_utility score = negamax(-beta, -beta+1, depth-1-R, board, tt, sc, false);
                         restore_null(board, st);
 
                         if(-score.utility >= beta){ //success
@@ -111,7 +111,7 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
     MoveList ml;
     generate_moves(ml, board);
 
-    // 4: Sort better moves first
+    // 4: Sort better moves first (MVV-LVA, Killer, TT move, captures)
     sort_moves(ml, ent.move, board, tt, sc);
 
     // 5: Try making every legal move
@@ -120,18 +120,32 @@ move_utility negamax(int alpha, int beta, int depth, Board& board, Transposition
     bool hasLegal = false;
 
     StateInfo st;
+    bool firstLegal = true;
     for (int i = 0; i < ml.count; ++i) {
         int move = ml.moves[i];
 
         if (!make_move(move, all_moves, board, st)) continue;
 
         hasLegal = true;
+        int score;
 
-        move_utility child = negamax(-beta, -alpha, depth - 1, board, tt, sc);
+        // 5a) Principal Variation Search (PVS)
+        if (pvNode && firstLegal) { // on PV nodes, search full window
+            move_utility child = negamax(-beta, -alpha, depth - 1, board, tt, sc, true);
+            score = -child.utility;
+        } 
+        else { // on non-PV nodes, search null window 
+            move_utility child = negamax(-alpha - 1, -alpha, depth - 1, board, tt, sc, false);
+            score = -child.utility;
 
-        int score = -child.utility;
+            if (pvNode && score > alpha && score < beta) { // if not a NULL window and we don't fail low ==> Search full window
+                child = negamax(-beta, -alpha, depth - 1, board, tt, sc, true);
+                score = -child.utility;
+            }
+        }
 
         undo_move(board, st, move);
+        firstLegal = false;
 
         if (score > bestScore) {
             bestScore = score;
@@ -178,7 +192,7 @@ move_utility iterative_deepening(int depth, TimeContext& tc, Board& board, Trans
         g_updates   = 0;
         g_evals     = 0;
 
-        move_utility cur_move = negamax(-INF, INF, i, board, tt, sc);
+        move_utility cur_move = negamax(-INF, INF, i, board, tt, sc, true);
         if(sc.stop.load(std::memory_order_relaxed)) break; // terminated early, don't use this
 
         U64 elapsed_time   = get_time_ms() - sc.start;     // since move start
