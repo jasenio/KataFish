@@ -46,6 +46,7 @@ Elo difference: 48.2 +/- 23.8, LOS: 100.0 %, DrawRatio: 15.9 %
 SPRT: llr 2.96 (100.4%), lbound -2.94, ubound 2.94 - H1 was accepted
 ```
 
+See SPRT.md for more results
 ---
 
 ## Basic Features
