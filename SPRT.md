@@ -57,7 +57,7 @@ Score of katafish_final vs katafish_old: 105 - 29 - 40  [0.718] 174
 ...      katafish_final playing Black: 44 - 17 - 25  [0.657] 86
 ...      White vs Black: 78 - 56 - 40  [0.563] 174
 Elo difference: 162.7 +/- 49.0, LOS: 100.0 %, DrawRatio: 23.0 %
-SPRT: llr 2.98 (101.1%), lbound -2.94, ubound 2.94 - H1 was acceptedNNUE Probe vs PSQT
+SPRT: llr 2.98 (101.1%), lbound -2.94, ubound 2.94 - H1 was accepted
 ```
 
 ```
