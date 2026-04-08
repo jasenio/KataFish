@@ -109,5 +109,4 @@ Score of katafish_final vs stash-18: 743 - 631 - 209  [0.535] 1583
 Elo difference: 24.6 +/- 16.0, LOS: 99.9 %, DrawRatio: 13.2 %
 SPRT: llr 2.96 (100.6%), lbound -2.94, ubound 2.94 - H1 was accepted
 ```
-Elo difference: 24.6 +/- 16.0, LOS: 99.9 %, DrawRatio: 13.2 %
-SPRT: llr 2.96 (100.6%), lbound -2.94, ubound 2.94 - H1 was accepted
+
