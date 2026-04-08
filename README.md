@@ -75,7 +75,7 @@ See SPRT.md for more results
 ### Other
 - UCI protocol support
 - Time management
-- Lichess-Bot ([See me play](https://lichess.org/@/KataFish))
+- Lichess-Bot API ([See me play](https://lichess.org/@/KataFish))
 ---
 
 ## Modules / Roadmap
