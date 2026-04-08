@@ -32,7 +32,7 @@ Raw Nodes per second: ~**140 million NPS**   (Bulk-counting, will vary based on 
 
 Search Nodes per second: ~**300K NPS** (Also varies on hardware)
 
-Search depth  (2000 ms): ~**7-8**   (Will vary based on position and hardware!)
+Search depth  (2000 ms): ~**8-9**   (Will vary based on position and hardware!)
 
 Approximate playing strength: ~**2550 CCRL ELO ([Top 400](https://computerchess.org.uk/4040/)!)** (based on games with [Stash-20](https://dannyhammer.github.io/engine-testing-guide/determining-strength.html))
 
