@@ -47,6 +47,7 @@ SPRT: llr 2.96 (100.4%), lbound -2.94, ubound 2.94 - H1 was accepted
 ```
 
 See SPRT.md for more results
+
 ---
 
 ## Basic Features
