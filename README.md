@@ -1,5 +1,7 @@
 # KataFish NNUE 2.4 - UCI Chess Engine (C++17)
 
+<img width="1915" height="1077" alt="image" src="https://github.com/user-attachments/assets/8418d6db-b73f-4701-99e5-dd27940db466" />
+
 ## About
 KataFish is a UCI chess engine written entirely in C++. This project is complete but is being updated as part of a long-term learning project (started in August 2024). If you want to learn more about chess programming, feel free to use this as a resource — there are many fundamental techniques used in this. If you simply want to test the engine, there is a **katafish.exe** file inside /bin ready to use on chess-engine GUI platforms (Cute Chess, Arena, etc.) with UCI protocol.
 
